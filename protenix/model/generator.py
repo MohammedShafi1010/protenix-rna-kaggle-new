@@ -281,6 +281,7 @@ def sample_diffusion_training(
     batch_size_shape = label_dict["coordinate"].shape[:-2]
     device = label_dict["coordinate"].device
     dtype = label_dict["coordinate"].dtype
+    #print("coordinate_mask shape: ", label_dict["coordinate_mask"].shape)
     # Areate N_sample versions of the input structure by randomly rotating and translating
     x_gt_augment = centre_random_augmentation(
         x_input_coords=label_dict["coordinate"],

@@ -11,10 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import copy
 import logging
 from typing import Any, Optional, Union
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -26,6 +27,7 @@ from protenix.model.modules.frames import (
 )
 from protenix.model.utils import expand_at_dim
 from protenix.openfold_local.utils.checkpointing import get_checkpoint_fn
+from protenix.utils.permutation.permutation import SymmetricPermutation
 from protenix.utils.torch_utils import cdist
 
 
@@ -1470,6 +1472,7 @@ class ProtenixLoss(nn.Module):
     def calculate_prediction(
         self,
         pred_dict: dict[str, torch.Tensor],
+        make_copy = False
     ) -> dict[str, torch.Tensor]:
         """get more predictions used for calculating difference losses
 
@@ -1479,6 +1482,18 @@ class ProtenixLoss(nn.Module):
         Returns:
             dict[str, torch.Tensor]: updated predictions
         """
+        if make_copy:
+            #print(pred_dict)
+            #print(pred_dict.keys())
+            pred_dict_cp = copy.deepcopy(pred_dict)
+            if not self.configs.loss_metrics_sparse_enable:
+                pred_dict_cp["distance"] = torch.cdist(
+                    pred_dict_cp["coordinate"], pred_dict_cp["coordinate"]
+                ).to(
+                    pred_dict_cp["coordinate"].dtype
+                )  # [..., N_atom, N_atom]
+            return pred_dict_cp
+
         if not self.configs.loss_metrics_sparse_enable:
             pred_dict["distance"] = torch.cdist(
                 pred_dict["coordinate"], pred_dict["coordinate"]
@@ -1720,7 +1735,9 @@ class ProtenixLoss(nn.Module):
         feat_dict: dict[str, Any],
         pred_dict: dict[str, torch.Tensor],
         label_dict: dict[str, Any],
+        label_full_dict: dict[str, Any],
         mode: str = "train",
+        symmetric_permutation: SymmetricPermutation= None,
     ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
         """
         Forward pass for calculating the cumulative loss and aggregated metrics.
@@ -1738,6 +1755,108 @@ class ProtenixLoss(nn.Module):
         """
         diffusion_chunk_size = self.configs.loss.diffusion_chunk_size_outer
         assert mode in ["train", "eval", "inference"]
+
+        if 'coordinate_multi' in label_dict.keys():
+
+            assert  diffusion_chunk_size <= 0, "now only support diffusion_chunk_size <= 0"
+            # N, seg_len, 3
+            coordinate_multi = label_dict['coordinate_multi']
+            print('use multi gt loss! coordinate_multi len: ', len(coordinate_multi))
+            min_cum_loss = 1e3
+            min_losses = {}
+            hit_idx = -1
+
+            top1_cum_loss = 1e5
+
+            #print(pred_dict.keys())
+            #exit(0)
+            # keys = list(feat_dict.keys())
+            # value_dict = {k: [] for  k in keys}
+            device = label_dict["coordinate"].device
+            for i in range(len(coordinate_multi)):
+
+                pred_dict.update(
+                    {
+                        "distogram": pred_dict[f"distogram_top{i+1}"],
+                        "coordinate": pred_dict[f"coordinate_top{i+1}"],
+                        "noise_level": pred_dict[f"noise_level_top{i+1}"],
+                    }
+                )
+                pred_dict = self.calculate_prediction(pred_dict)
+
+
+                # # check
+                # for k in keys:
+                #     v = feat_dict[k]
+                #     if isinstance(v, torch.Tensor):
+                #         try:
+                #             v = feat_dict[k].mean()
+                #             value_dict[k].append(v.item())
+                #         except:
+                #             print('err: ', k)
+                #     else:
+                #         print("pass: ", k)
+                coordinate = coordinate_multi[i]
+                label_dict_sub = {
+                    'coordinate': coordinate.to(device), #coordinate_multi[0].to(device),
+                    'coordinate_mask': label_dict['coordinate_mask'],# same coordinate_mask
+                }
+                label_full_dict['coordinate'] = label_dict_sub['coordinate']
+
+
+                # print(label_dict_sub['coordinate'][:20])
+                # print(label_dict_sub.keys())
+                # label_dict_sub, log = (
+                #     symmetric_permutation.permute_label_to_match_mini_rollout(
+                #         pred_dict["coordinate_mini"],
+                #         feat_dict,
+                #         label_dict_sub,
+                #         label_full_dict,
+                #     )
+                # )
+                # print('------')
+                # print(label_dict_sub['coordinate'][:20])
+                # print(label_dict_sub.keys())
+                # print(log)
+                #exit(0)
+
+                # Pre-computations
+                with torch.no_grad():
+                    label_dict_sub = self.calculate_label(feat_dict, label_dict_sub)
+
+                # pred_dict, perm_log_dict, _, _ = (
+                #     symmetric_permutation.permute_diffusion_sample_to_match_label(
+                #         feat_dict, pred_dict, label_dict_sub, stage="train"
+                #     )
+                # )
+
+                #feat_dict_cp = copy.deepcopy(feat_dict)
+                # Calculate losses
+                cum_loss, losses = self.calculate_losses(
+                    feat_dict=feat_dict, # without changing pred_dict inside? --yes, so no copy
+                    pred_dict=pred_dict, # without changing pred_dict inside? --yes, so no copy
+                    label_dict=label_dict_sub,
+                    mode=mode,
+                )
+                print(f'index {i} cum_loss: ', cum_loss)
+                if cum_loss < min_cum_loss:
+                    min_cum_loss = cum_loss
+                    min_losses = losses
+                    hit_idx = i
+                if i == 0:
+                    top1_cum_loss = cum_loss
+                #break
+
+            # for k, v in value_dict.items():
+            #     print(f'k {k} v: {np.unique(v)}')
+            # exit(0)
+
+            print('hit_idx: ', hit_idx)
+            print('min_cum_loss: ', min_cum_loss)
+            #exit(0)
+            # try to use the best one with weight 0.1 especially when distill vfold
+            return min_cum_loss + 0.1 * top1_cum_loss, min_losses
+
         # Pre-computations
         with torch.no_grad():
             label_dict = self.calculate_label(feat_dict, label_dict)
@@ -1753,6 +1872,9 @@ class ProtenixLoss(nn.Module):
                 mode=mode,
             )
         else:
+            raise  NotImplementedError("current don't support on lhw branch")
+
+
             if "coordinate" in pred_dict:
                 N_sample = pred_dict["coordinate"].shape[-3]
             elif self.configs.train_confidence_only:

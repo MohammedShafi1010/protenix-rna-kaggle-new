@@ -17,10 +17,10 @@
 # wget -P /af3-dev/release_model/ https://af3-dev.tos-cn-beijing.volces.com/release_model/model_v0.2.0.pt
 checkpoint_path="/home/lhw/work/rna2025/release_data/checkpoint//model_v0.2.0.pt"
 
-python3 ./runner/train.py \
+CUDA_VISIBLE_DEVICES=1 python3 ./runner/train.py \
 --run_name protenix_finetune \
 --seed 42 \
---base_dir ./output2 \
+--base_dir ./output_top5 \
 --dtype bf16 \
 --project protenix \
 --use_wandb false \
@@ -29,7 +29,7 @@ python3 ./runner/train.py \
 --log_interval 1 \
 --checkpoint_interval 1000 \
 --ema_decay 0.995 \
---train_crop_size 416 \
+--train_crop_size 384 \
 --max_steps 1000 \
 --warmup_steps 10 \
 --lr 0.0001 \

@@ -97,7 +97,7 @@ class SimpleRNADataset(Dataset):
         self.use_msa = use_msa
         with open(self.input_json_path, "r") as f:
             self.inputs = json.load(f)
-            #self.inputs =  self.inputs[:23]
+            #self.inputs =  self.inputs[:1]
         print(self.inputs[0])
         #exit(0)
         casp_vfold_result_dir = '/home/lhw/work/rna2025/data/casp16/vfold-prediction/'
@@ -105,15 +105,20 @@ class SimpleRNADataset(Dataset):
         for sample in self.inputs:
             name = sample["name"]
             fn = casp_vfold_result_dir+name
-            names = sorted(glob.glob(fn+"/*.pdb"))
+            names = sorted(glob.glob(fn+"/*.pdb"), reverse=False)
             print(names[0])
             assert len(names) == 5
+
+            # names2 = [names[1], names[0] ]# * 2
+            # names = names2
+
             xyz_5 = []
             for fn in names:
                 xyz, _ = self.parse_pdb_to_xyz(fn)
                 xyz_5.append(xyz)
-            self.name_to_xyz[name] = np.array(xyz_5)#.transpose(1,2,0)
-
+            a = np.array(xyz_5)
+            #print(a[1][-4:])
+            self.name_to_xyz[name] = a
             print(self.name_to_xyz[name].shape)
 
         self.crop_size = crop_size
@@ -183,7 +188,9 @@ class SimpleRNADataset(Dataset):
             xyz = xyz[:, start:end, :]
             single_sample_dict["sequences"][0]['rnaSequence']['sequence'] = seq
         # now only take the top1
-        xyz = xyz[0]
+        only_top1 = False#True
+        if only_top1:
+            xyz = xyz[0]
 
         sample2feat = SampleDictToFeatures(
             single_sample_dict,
@@ -198,20 +205,39 @@ class SimpleRNADataset(Dataset):
         coordinate_list = []
         coordinate_mask_list = []
 
-        idx = 0
-        for atom in atom_array:
-            # print('res_name: ', atom.res_name)
-            # print('atom.atom_name: ', atom.atom_name)
-            if atom.atom_name == 'C1\'':
-                coordinate_list.append(xyz[idx])
-                coordinate_mask_list.append(1)
-                idx += 1
-            else:
-                coordinate_list.append([0,0,0])
-                coordinate_mask_list.append(0)
-        #print("xyz.shape, idx: ", xyz.shape, idx)
-        assert idx == len(xyz)
+        if only_top1:
+            idx = 0
+            for atom in atom_array:
+                # print('res_name: ', atom.res_name)
+                # print('atom.atom_name: ', atom.atom_name)
+                if atom.atom_name == 'C1\'':
+                    coordinate_list.append(xyz[idx])
+                    coordinate_mask_list.append(1)
+                    idx += 1
+                else:
+                    coordinate_list.append([0, 0, 0])
+                    coordinate_mask_list.append(0)
+            # print("xyz.shape, idx: ", xyz.shape, idx)
+            assert idx == len(xyz)
+        else:
+            #n_atom = len(atom_array)
+            n_gt = len(xyz)
+            print('n_gt: ',  n_gt)
+            #coordinate = np.zeros((n_gt, n_atom, 3), dtype=np.float32)
+            coordinate_zero =[ [0, 0, 0] ] * n_gt
 
+            idx = 0
+            for atom in atom_array:
+                # print('res_name: ', atom.res_name)
+                # print('atom.atom_name: ', atom.atom_name)
+                if atom.atom_name == 'C1\'':
+                    coordinate_list.append(xyz[:, idx].tolist() )
+                    coordinate_mask_list.append(1)
+                    idx += 1
+                else:
+                    coordinate_list.append(coordinate_zero)
+                    coordinate_mask_list.append(0)
+            assert idx == xyz.shape[1]
 
         t1 = time.time()
 
@@ -303,8 +329,16 @@ class SimpleRNADataset(Dataset):
             "featurizer": t2 - t1,
             "added_feature": t3 - t2,
         }
-        data['coordinate'] = torch.from_numpy(np.array(coordinate_list)).float()
-        data['coordinate_mask'] = torch.from_numpy(np.array(coordinate_mask_list)).long()
+        if only_top1:
+            data['coordinate'] = torch.from_numpy(np.array(coordinate_list)).float()
+            data['coordinate_mask'] = torch.from_numpy(np.array(coordinate_mask_list)).long()
+        else:
+            # seg_len, 5, 3 --> 5, seg_len, 3
+            c = np.ascontiguousarray(np.array(coordinate_list,
+                                              dtype=np.float32).transpose(1, 0, 2))
+            data['coordinate_multi'] = torch.from_numpy(c).float()
+            data['coordinate_mask'] = torch.from_numpy(np.array(coordinate_mask_list)).float()
+            data['coordinate'] = data['coordinate_multi'][0]
 
         return data, atom_array, time_tracker
 

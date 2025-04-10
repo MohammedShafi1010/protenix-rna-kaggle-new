@@ -296,7 +296,7 @@ class AF3Trainer(object):
         #print(batch["input_feature_dict"]["entity_mol_id"] )
         #print('input_feature_dict: ')
         #self.print_dict(batch["input_feature_dict"])
-        N = batch["input_feature_dict"]["is_rna"].shape[0]
+        #N = batch["input_feature_dict"]["is_rna"].shape[0]
         batch["label_full_dict"] = {
             'entity_mol_id': batch["input_feature_dict"]["entity_mol_id"],
             'mol_id':  batch["input_feature_dict"]["mol_id"],
@@ -306,6 +306,11 @@ class AF3Trainer(object):
             "coordinate": batch["coordinate"],
             "coordinate_mask": batch["coordinate_mask"],
         }
+        if 'coordinate_multi' in batch.keys():
+            batch["label_dict"]['coordinate_multi'] = batch["coordinate_multi"]
+
+        #print("coordinate shape: ", batch["coordinate"].shape)
+        #print("coordinate_mask shape: ", batch["coordinate_mask"].shape)
         # batch["label_dict"] = {
         #     "coordinate": torch.zeros((N, 3),
         #                               device=batch["input_feature_dict"]["is_rna"].device),
@@ -325,6 +330,8 @@ class AF3Trainer(object):
         # # print('label_dict: ')
         # # self.print_dict(batch["label_dict"])
         # exit(0)
+        #print("batch[\"label_dict\"]['coordinate'][:20]..")
+        #print(batch["label_dict"]['coordinate'][:20])
 
         batch["pred_dict"], batch["label_dict"], log_dict = self.model(
             input_feature_dict=batch["input_feature_dict"],
@@ -336,9 +343,9 @@ class AF3Trainer(object):
         )
 
 
-        #print('pred_dict .... ')
-        #self.print_dict(batch["pred_dict"])
-        #exit(0)
+        # print('pred_dict .... ')
+        # self.print_dict(batch["pred_dict"])
+        # exit(0)
 
         return batch, log_dict
 
@@ -353,7 +360,9 @@ class AF3Trainer(object):
             feat_dict=batch["input_feature_dict"],
             pred_dict=batch["pred_dict"],
             label_dict=batch["label_dict"],
+            label_full_dict=batch["label_full_dict"],
             mode=mode,
+            symmetric_permutation=self.symmetric_permutation,
         )
         return loss, loss_dict, batch
 

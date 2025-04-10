@@ -609,28 +609,60 @@ class Protenix(nn.Module):
         # Denoising: use permuted coords to generate noisy samples and perform denoising
         # x_denoised: [..., N_sample, N_atom, 3]
         # x_noise_level: [..., N_sample]
-        N_sample = self.diffusion_batch_size
-        _, x_denoised, x_noise_level = autocasting_disable_decorator(
-            self.configs.skip_amp.sample_diffusion_training
-        )(sample_diffusion_training)(
-            noise_sampler=self.train_noise_sampler,
-            denoise_net=self.diffusion_module,
-            label_dict=label_dict,
-            input_feature_dict=input_feature_dict,
-            s_inputs=s_inputs,
-            s_trunk=s,
-            z_trunk=z,
-            N_sample=N_sample,
-            diffusion_chunk_size=self.configs.diffusion_chunk_size,
-        )
-        pred_dict.update(
-            {
-                "distogram": self.distogram_head(z),
-                # [..., N_sample=48, N_atom, 3]: diffusion loss
-                "coordinate": x_denoised,
-                "noise_level": x_noise_level,
-            }
-        )
+        if 'coordinate_multi' in label_dict.keys():
+            n_top = len(label_dict["coordinate_multi"])
+            N_sample = self.diffusion_batch_size
+            #coordinate_top1 = label_dict["coordinate"]
+            coordinate_top1 = label_dict["coordinate_multi"][0]
+            for i in range(n_top):
+                label_dict["coordinate"] = label_dict["coordinate_multi"][i]
+                _, x_denoised, x_noise_level = autocasting_disable_decorator(
+                    self.configs.skip_amp.sample_diffusion_training
+                )(sample_diffusion_training)(
+                    noise_sampler=self.train_noise_sampler,
+                    denoise_net=self.diffusion_module,
+                    label_dict=label_dict,
+                    input_feature_dict=input_feature_dict,
+                    s_inputs=s_inputs,
+                    s_trunk=s,
+                    z_trunk=z,
+                    N_sample=N_sample,
+                    diffusion_chunk_size=self.configs.diffusion_chunk_size,
+                )
+                pred_dict.update(
+                    {
+                        f"distogram_top{i+1}": self.distogram_head(z),
+                        # [..., N_sample=48, N_atom, 3]: diffusion loss
+                        f"coordinate_top{i+1}": x_denoised,
+                        f"noise_level_top{i+1}": x_noise_level,
+                    }
+                )
+            label_dict["coordinate"] = coordinate_top1
+            pred_dict["coordinate"] = pred_dict["coordinate_top1"]
+
+        else:
+            N_sample = self.diffusion_batch_size
+            _, x_denoised, x_noise_level = autocasting_disable_decorator(
+                self.configs.skip_amp.sample_diffusion_training
+            )(sample_diffusion_training)(
+                noise_sampler=self.train_noise_sampler,
+                denoise_net=self.diffusion_module,
+                label_dict=label_dict,
+                input_feature_dict=input_feature_dict,
+                s_inputs=s_inputs,
+                s_trunk=s,
+                z_trunk=z,
+                N_sample=N_sample,
+                diffusion_chunk_size=self.configs.diffusion_chunk_size,
+            )
+            pred_dict.update(
+                {
+                    "distogram": self.distogram_head(z),
+                    # [..., N_sample=48, N_atom, 3]: diffusion loss
+                    "coordinate": x_denoised,
+                    "noise_level": x_noise_level,
+                }
+            )
 
         # Permute symmetric atom/chain in each sample to match true structure
         # Note: currently chains cannot be permuted since label is cropped
