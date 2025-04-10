@@ -128,6 +128,14 @@ class InferenceRunner(object):
             sorted_by_ranking_score=sorted_by_ranking_score,
         )
 
+    def print_dict(self, d):
+        for k, v in d.items():
+            if isinstance(v, torch.Tensor):
+                print(f"{k}: ", v.shape)
+            else:
+                pass
+                #print(f"{k}: {v}")
+
     # Adapted from runner.train.Trainer.evaluate
     @torch.no_grad()
     def predict(self, data: Mapping[str, Mapping[str, Any]]) -> dict[str, torch.Tensor]:
@@ -136,12 +144,14 @@ class InferenceRunner(object):
             "bf16": torch.bfloat16,
             "fp16": torch.float16,
         }[self.configs.dtype]
-
+        print('eval_precision: ', eval_precision)
         enable_amp = (
             torch.autocast(device_type="cuda", dtype=eval_precision)
             if torch.cuda.is_available()
             else nullcontext()
         )
+        print('input_feature_dict: ', self.print_dict(data["input_feature_dict"]))
+        exit(0)
 
         data = to_device(data, self.device)
         with enable_amp:
@@ -298,6 +308,7 @@ def run() -> None:
         fill_required_with_null=True,
     )
     download_infercence_cache(configs, model_version="v0.2.0")
+    print(configs)
     main(configs)
 
 

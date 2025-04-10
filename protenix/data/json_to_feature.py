@@ -298,12 +298,16 @@ class SampleDictToFeatures:
                 - A TokenArray object.
         """
         atom_array = self.get_atom_array()
-
         aa_tokenizer = AtomArrayTokenizer(atom_array)
         token_array = aa_tokenizer.get_token_array()
 
+        atom_array = AddAtomArrayAnnot.add_ref_info_and_res_perm(atom_array)
         featurizer = Featurizer(token_array, atom_array)
         feature_dict = featurizer.get_all_input_features()
+
+        atom_perm_list = featurizer.get_atom_permutation_list()
+        # Permutation list for atom permutation
+        feature_dict["atom_perm_list"] = atom_perm_list
 
         token_array_with_frame = featurizer.get_token_frame(
             token_array=token_array,

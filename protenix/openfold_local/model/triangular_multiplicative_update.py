@@ -355,10 +355,16 @@ class TriangleMultiplicativeUpdate(BaseTriangleMultiplicativeUpdate):
                 )
                 del z_chunk_b
 
-                x_chunk = torch.matmul(
-                    a,
-                    b_chunk,
-                )
+#                 x_chunk = torch.matmul(
+#                     a,
+#                     b_chunk,
+#                 )
+                with torch.cuda.amp.autocast(enabled=False):
+                    x_chunk = torch.matmul(
+                        a.float(),
+                        b_chunk.float(),
+                    )
+            
                 x_chunk = permute_final_dims(x_chunk, (1, 2, 0))
                 x_chunk = self.layer_norm_out(x_chunk)
                 x_chunk = self.linear_z(x_chunk)

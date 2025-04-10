@@ -29,6 +29,7 @@ from configs.configs_data import data_configs
 from protenix.config import parse_configs, parse_sys_args
 from protenix.config.config import save_config
 from protenix.data.dataloader import get_dataloaders
+from protenix.data.rna_dataset import get_rna_dataloader
 from protenix.metrics.lddt_metrics import LDDTMetrics
 from protenix.model.loss import ProtenixLoss
 from protenix.model.protenix import Protenix
@@ -183,12 +184,19 @@ class AF3Trainer(object):
         self.lr_scheduler = get_lr_scheduler(self.configs, self.optimizer, **kwargs)
 
     def init_data(self):
-        self.train_dl, self.test_dls = get_dataloaders(
-            self.configs,
-            DIST_WRAPPER.world_size,
-            seed=self.configs.seed,
-            error_dir=self.error_dir,
-        )
+        self.configs.input_json_path = "./examples/casp16_part.json"
+        self.configs.dump_dir = "./output/"
+        self.configs.use_msa = True
+        self.configs.num_workers = 4
+        dataloader = get_rna_dataloader(configs=self.configs)
+        self.train_dl, test_dl = dataloader, dataloader
+        self.test_dls = {"default": test_dl}
+        # self.train_dl, self.test_dls = get_dataloaders(
+        #     self.configs,
+        #     DIST_WRAPPER.world_size,
+        #     seed=self.configs.seed,
+        #     error_dir=self.error_dir,
+        # )
 
     def save_checkpoint(self, ema_suffix=""):
         if DIST_WRAPPER.rank == 0:
@@ -272,8 +280,52 @@ class AF3Trainer(object):
         if DIST_WRAPPER.rank == 0:
             logging.info(msg)
 
+    def print_dict(self, d):
+        for k, v in d.items():
+            if isinstance(v, torch.Tensor):
+                print(f"{k}: ", v.shape)
+            else:
+                pass
+                #print(f"{k}: {v}")
+
     def model_forward(self, batch: dict, mode: str = "train") -> tuple[dict, dict]:
         assert mode in ["train", "eval"]
+        #print(batch.keys() )
+
+        print(batch["input_feature_dict"]["token_index"].shape)
+        #print(batch["input_feature_dict"]["entity_mol_id"] )
+        #print('input_feature_dict: ')
+        #self.print_dict(batch["input_feature_dict"])
+        N = batch["input_feature_dict"]["is_rna"].shape[0]
+        batch["label_full_dict"] = {
+            'entity_mol_id': batch["input_feature_dict"]["entity_mol_id"],
+            'mol_id':  batch["input_feature_dict"]["mol_id"],
+            'mol_atom_index': batch["input_feature_dict"]["mol_atom_index"],
+        }
+        batch["label_dict"] = {
+            "coordinate": batch["coordinate"],
+            "coordinate_mask": batch["coordinate_mask"],
+        }
+        # batch["label_dict"] = {
+        #     "coordinate": torch.zeros((N, 3),
+        #                               device=batch["input_feature_dict"]["is_rna"].device),
+        #     "coordinate_mask": torch.ones(N,
+        #                               device=batch["input_feature_dict"]["is_rna"].device),
+        # }
+        batch["label_full_dict"].update(batch["label_dict"])
+
+        #print(batch["label_full_dict"])
+        #exit(0)
+        #
+        # print(batch["label_full_dict"]['atom_perm_list'])
+        # print(len(batch["label_full_dict"]['atom_perm_list']))
+        #
+        # # print('label_full_dict: ')
+        # # self.print_dict(batch["label_full_dict"])
+        # # print('label_dict: ')
+        # # self.print_dict(batch["label_dict"])
+        # exit(0)
+
         batch["pred_dict"], batch["label_dict"], log_dict = self.model(
             input_feature_dict=batch["input_feature_dict"],
             label_dict=batch["label_dict"],
@@ -282,6 +334,12 @@ class AF3Trainer(object):
             current_step=self.step if mode == "train" else None,
             symmetric_permutation=self.symmetric_permutation,
         )
+
+
+        #print('pred_dict .... ')
+        #self.print_dict(batch["pred_dict"])
+        #exit(0)
+
         return batch, log_dict
 
     def get_loss(
@@ -502,6 +560,10 @@ class AF3Trainer(object):
                 step_need_log &= is_update_step
                 step_need_eval &= is_update_step
                 step_need_save &= is_update_step
+
+                if isinstance(batch, list):
+                    print('len batch: ', len(batch))
+                    batch = batch[0]
 
                 batch = to_device(batch, self.device)
                 self.progress_bar()

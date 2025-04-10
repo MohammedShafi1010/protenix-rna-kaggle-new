@@ -387,7 +387,7 @@ def rearrange_to_dense_trunk(
                 [..., n_trunks, n_queries, d]
             k_trunked / v_trunked
                 [..., n_trunks, n_keys, d]
-            attn_bias_trunked:  padded position filled with -inf
+            attn_bias_trunked:  padded position filled with torch.finfo(torch.float16).min#-inf
                 [..., n_trunks, n_queries, n_keys]
             q_pad_length: query padded dimension
     """
@@ -417,11 +417,11 @@ def rearrange_to_dense_trunk(
         attn_bias = q.new_zeros(
             *(1,) * len(q.shape[:-2]), n + q_pad_length, n + pad_left + pad_right
         )
-        attn_bias[..., :n, 0:pad_left] = -inf
-        attn_bias[..., :n, pad_left + n : :] = -inf
-        attn_bias[..., n::, :] = -inf
+        attn_bias[..., :n, 0:pad_left] = torch.finfo(torch.float16).min
+        attn_bias[..., :n, pad_left + n : :] = torch.finfo(torch.float16).min
+        attn_bias[..., n::, :] = torch.finfo(torch.float16).min
     else:
-        attn_bias = F.pad(attn_bias, (pad_left, pad_right, 0, q_pad_length), value=-inf)
+        attn_bias = F.pad(attn_bias, (pad_left, pad_right, 0, q_pad_length), value=torch.finfo(torch.float16).min)
 
     concat_split_data = optimized_concat_split(attn_bias, n_queries)
     attn_bias_trunked = concat_split_data.unfold(
@@ -552,7 +552,7 @@ def create_local_attn_bias(
         j1 = max(0, n_queries * block_index - (n_keys - n_queries) // 2)
         j2 = n_queries * block_index + (n_queries + n_keys) // 2
         attn_mask[i : i + n_queries, j1:j2] = 1.0
-    attn_bias = (1 - attn_mask) * -inf
+    attn_bias = (1 - attn_mask) * torch.finfo(torch.float16).min#-inf
     return attn_bias.to(device=device)[:n, :n]
 
 

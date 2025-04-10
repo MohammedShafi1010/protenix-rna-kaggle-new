@@ -590,7 +590,7 @@ class AtomPermutation(object):
 
         # If no residues contain symmetry, return now.
         if not per_residue_perm_list:
-            print("No atom permutation is needed. Return the identity permutation.")
+            #print("No atom permutation is needed. Return the identity permutation.")
             return (permutation, log_dict)
 
         # no_permute_atom_mask: 1 represent this atom can not be permuted

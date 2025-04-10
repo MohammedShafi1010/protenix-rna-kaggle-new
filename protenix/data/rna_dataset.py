@@ -43,9 +43,9 @@ logger = logging.getLogger(__name__)
 warnings.filterwarnings("ignore", module="biotite")
 
 
-def get_inference_dataloader(configs: Any) -> DataLoader:
+def get_rna_dataloader(configs: Any) -> DataLoader:
     """
-    Creates and returns a DataLoader for inference using the InferenceDataset.
+    Creates and returns a DataLoader for inference using the SimpleRNADataset.
 
     Args:
         configs: A configuration object containing the necessary parameters for the DataLoader.
@@ -53,16 +53,25 @@ def get_inference_dataloader(configs: Any) -> DataLoader:
     Returns:
         A DataLoader object configured for inference.
     """
-    inference_dataset = InferenceDataset(
+    crop_size = 420
+    data_config = configs.data
+    for train_name in data_config.train_sets:
+        config_dict = data_config[train_name].to_dict()
+        crop_size = config_dict['cropping_configs']['crop_size']
+    print(f"cropping size is {crop_size}")
+    #exit(0)
+    inference_dataset = SimpleRNADataset(
         input_json_path=configs.input_json_path,
         dump_dir=configs.dump_dir,
         use_msa=configs.use_msa,
+        crop_size = crop_size,
     )
     sampler = DistributedSampler(
         dataset=inference_dataset,
         num_replicas=DIST_WRAPPER.world_size,
         rank=DIST_WRAPPER.rank,
-        shuffle=False,
+        #shuffle=False,
+        shuffle=True,
     )
     dataloader = DataLoader(
         dataset=inference_dataset,
@@ -74,12 +83,13 @@ def get_inference_dataloader(configs: Any) -> DataLoader:
     return dataloader
 
 
-class InferenceDataset(Dataset):
+class SimpleRNADataset(Dataset):
     def __init__(
         self,
         input_json_path: str,
         dump_dir: str,
         use_msa: bool = True,
+        crop_size=420
     ) -> None:
 
         self.input_json_path = input_json_path
@@ -90,18 +100,23 @@ class InferenceDataset(Dataset):
             #self.inputs =  self.inputs[:23]
         print(self.inputs[0])
         #exit(0)
-#         casp_vfold_result_dir = '/home/lhw/work/rna2025/data/casp16/vfold-prediction/'
-#         self.name_to_xyz = {}
-#         for sample in self.inputs:
-#             name = sample["name"]
-#             fn = casp_vfold_result_dir+name
-#             names = glob.glob(fn+"/*_1.pdb")
-#             assert len(names) == 1
-#             fn = names[0]
-#             xyz, _ = self.parse_pdb_to_xyz(fn)
-#             print(xyz.shape)
-#             self.name_to_xyz[name] = xyz
-        #exit(0)
+        casp_vfold_result_dir = '/home/lhw/work/rna2025/data/casp16/vfold-prediction/'
+        self.name_to_xyz = {}
+        for sample in self.inputs:
+            name = sample["name"]
+            fn = casp_vfold_result_dir+name
+            names = sorted(glob.glob(fn+"/*.pdb"))
+            print(names[0])
+            assert len(names) == 5
+            xyz_5 = []
+            for fn in names:
+                xyz, _ = self.parse_pdb_to_xyz(fn)
+                xyz_5.append(xyz)
+            self.name_to_xyz[name] = np.array(xyz_5)#.transpose(1,2,0)
+
+            print(self.name_to_xyz[name].shape)
+
+        self.crop_size = crop_size
 
     def parse_pdb_to_xyz(self, pdb_file):
         parser = PDBParser()
@@ -155,6 +170,21 @@ class InferenceDataset(Dataset):
         """
         # general features
         t0 = time.time()
+        # 5, seg_len, 3
+        xyz = self.name_to_xyz[single_sample_dict["name"]]
+        seq = single_sample_dict["sequences"][0]['rnaSequence']['sequence']
+        assert  len(seq) == xyz.shape[1]
+        if len(seq) > self.crop_size:
+            print("crop seq and xyz: ", len(seq))
+            # random crop  seq and xyz
+            start = np.random.randint(0, len(seq)-self.crop_size)
+            end = start + self.crop_size
+            seq = seq[start:end]
+            xyz = xyz[:, start:end, :]
+            single_sample_dict["sequences"][0]['rnaSequence']['sequence'] = seq
+        # now only take the top1
+        xyz = xyz[0]
+
         sample2feat = SampleDictToFeatures(
             single_sample_dict,
         )
@@ -164,28 +194,23 @@ class InferenceDataset(Dataset):
         ).long()
         entity_poly_type = sample2feat.entity_poly_type
 
-#         ##
-#         coordinate_list = []
-#         coordinate_mask_list = []
-#         xyz = self.name_to_xyz[single_sample_dict["name"]]
+        ##
+        coordinate_list = []
+        coordinate_mask_list = []
 
-
-#         # extra_features["atom_to_tokatom_idx"] = torch.Tensor(
-#         #     self.cropped_atom_array.tokatom_idx
-#         # ).long()
-#         idx = 0
-#         for atom in atom_array:
-#             # print('res_name: ', atom.res_name)
-#             # print('atom.atom_name: ', atom.atom_name)
-#             if atom.atom_name == 'C1\'':
-#                 coordinate_list.append(xyz[idx])
-#                 coordinate_mask_list.append(1)
-#                 idx += 1
-#             else:
-#                 coordinate_list.append([0,0,0])
-#                 coordinate_mask_list.append(0)
-#         #print("xyz.shape, idx: ", xyz.shape, idx)
-#         assert idx == len(xyz)
+        idx = 0
+        for atom in atom_array:
+            # print('res_name: ', atom.res_name)
+            # print('atom.atom_name: ', atom.atom_name)
+            if atom.atom_name == 'C1\'':
+                coordinate_list.append(xyz[idx])
+                coordinate_mask_list.append(1)
+                idx += 1
+            else:
+                coordinate_list.append([0,0,0])
+                coordinate_mask_list.append(0)
+        #print("xyz.shape, idx: ", xyz.shape, idx)
+        assert idx == len(xyz)
 
 
         t1 = time.time()
@@ -278,27 +303,19 @@ class InferenceDataset(Dataset):
             "featurizer": t2 - t1,
             "added_feature": t3 - t2,
         }
-#         data['coordinate'] = torch.from_numpy(np.array(coordinate_list)).float()
-#         data['coordinate_mask'] = torch.from_numpy(np.array(coordinate_mask_list)).long()
+        data['coordinate'] = torch.from_numpy(np.array(coordinate_list)).float()
+        data['coordinate_mask'] = torch.from_numpy(np.array(coordinate_mask_list)).long()
 
         return data, atom_array, time_tracker
 
     def __len__(self) -> int:
         return len(self.inputs)
 
-    def __getitem__(self, index: int) -> tuple[dict[str, torch.Tensor], AtomArray, str]:
-        try:
-            single_sample_dict = self.inputs[index]
-            #sample_name = single_sample_dict["name"]
-            #logger.info(f"Featurizing {sample_name}...")
-
-            data, atom_array, _ = self.process_one(
-                single_sample_dict=single_sample_dict
-            )
-            error_message = ""
-        except Exception as e:
-            data, atom_array = {}, None
-            error_message = f"{e}:\n{traceback.format_exc()}"
+    def __getitem__(self, index: int):
+        single_sample_dict = self.inputs[index].copy()
+        data, atom_array, _ = self.process_one(
+            single_sample_dict=single_sample_dict
+        )
         data["sample_name"] = single_sample_dict["name"]
         data["sample_index"] = index
-        return data, atom_array, error_message
+        return data#, atom_array, error_message

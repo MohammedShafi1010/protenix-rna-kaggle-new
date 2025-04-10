@@ -2233,12 +2233,19 @@ class AddAtomArrayAnnot(object):
         """
         # pre-defined atom name order for tokatom_idx
         tokatom_idx_list = []
+
         for atom in atom_array:
+
             atom_name_position = RES_ATOMS_DICT.get(atom.res_name, None)
             if atom.mol_type == "ligand" or atom_name_position is None:
                 tokatom_idx = 0
             else:
                 tokatom_idx = atom_name_position[atom.atom_name]
+
+            # print('res_name: ', atom.res_name)
+            # print('atom.atom_name: ', atom.atom_name)
+            # print('atom_name_position: ', atom_name_position)
+            # exit(0)
             tokatom_idx_list.append(tokatom_idx)
         atom_array.set_annotation("tokatom_idx", tokatom_idx_list)
         return atom_array
