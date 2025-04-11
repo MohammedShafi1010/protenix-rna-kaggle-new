@@ -446,12 +446,15 @@ def parse_msa_data(
     Raises:
         ValueError: If `msa_entity_type` is not "prot" or "rna".
     """
-    if msa_entity_type == "prot":
-        return parse_prot_msa_data(raw_msa_paths, seq_limits)
+    # only support a3m in lhw branch
+    return parse_prot_msa_data(raw_msa_paths, seq_limits)
 
-    if msa_entity_type == "rna":
-        return parse_rna_msa_data(raw_msa_paths, seq_limits, query=query)
-    return []
+    # if msa_entity_type == "prot":
+    #     return parse_prot_msa_data(raw_msa_paths, seq_limits)
+    #
+    # if msa_entity_type == "rna":
+    #     return parse_rna_msa_data(raw_msa_paths, seq_limits, query=query)
+    # return []
 
 
 def parse_rna_msa_data(

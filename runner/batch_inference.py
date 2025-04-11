@@ -183,6 +183,7 @@ def inference_jsons(
     out_dir: str = "./output",
     use_msa_server: bool = False,
     seeds: tuple = (101,),
+    use_msa: bool = False,
 ) -> None:
     """
     infer_json: json file or directory, will run infer with these jsons
@@ -211,7 +212,7 @@ def inference_jsons(
     inference_configs["input_json_path"] = infer_jsons[0]
     runner = get_default_runner(seeds)
     configs = runner.configs
-    
+    configs.use_msa = use_msa
     print(configs)
     #exit(0)
     for idx, infer_json in enumerate(tqdm.tqdm(infer_jsons)):
@@ -279,7 +280,8 @@ def protenix_cli():
     "--seeds", type=str, default="101", help="the inference seed, split by comma"
 )
 @click.option("--use_msa_server", is_flag=True, help="do msa search or not")
-def predict(input, out_dir, seeds, use_msa_server):
+@click.option("--use_msa", type=bool, default=False, help="do msa or not")
+def predict(input, out_dir, seeds, use_msa_server, use_msa):
     """
     predict: Run predictions with protenix.
     :param input, out_dir, use_msa_server
@@ -290,7 +292,7 @@ def predict(input, out_dir, seeds, use_msa_server):
         f"run infer with input={input}, out_dir={out_dir}, use_msa_server={use_msa_server}"
     )
     seeds = list(map(int, seeds.split(",")))
-    inference_jsons(input, out_dir, use_msa_server, seeds=seeds)
+    inference_jsons(input, out_dir, use_msa_server, seeds=seeds, use_msa=use_msa)
 
 
 @click.command()

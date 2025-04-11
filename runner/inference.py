@@ -103,7 +103,9 @@ class InferenceRunner(object):
         checkpoint_path = '/home/lhw/work/rna2025/Protenix/output/protenix_finetune_20250409_185733/checkpoints/499_ema_0.995.pt'
         #checkpoint_path = '/home/lhw/work/rna2025/Protenix/output/protenix_finetune_20250409_180051/checkpoints/99_ema_0.999.pt'
         #checkpoint_path = '/home/lhw/work/rna2025/Protenix/output/protenix_finetune_20250409_180051/checkpoints/99.pt'
-        checkpoint_path = '/home/lhw/work/rna2025/Protenix/output2/protenix_finetune_20250410_081032/checkpoints/999_ema_0.995.pt'
+        #checkpoint_path = '/home/lhw/work/rna2025/Protenix/output2/protenix_finetune_20250410_081032/checkpoints/999_ema_0.995.pt'
+        #checkpoint_path = '/home/lhw/work/rna2025/Protenix/output_top5/protenix_finetune_20250410_142904/checkpoints/999_ema_0.995.pt'
+        checkpoint_path = '/home/lhw/work/rna2025/Protenix/output_comp_no_msa/protenix_finetune_20250410_204706/checkpoints/11999_ema_0.995.pt'
         print(checkpoint_path)
         #exit(0)
         

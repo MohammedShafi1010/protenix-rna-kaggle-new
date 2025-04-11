@@ -29,7 +29,9 @@ from configs.configs_data import data_configs
 from protenix.config import parse_configs, parse_sys_args
 from protenix.config.config import save_config
 from protenix.data.dataloader import get_dataloaders
-from protenix.data.rna_dataset import get_rna_dataloader
+# from protenix.data.rna_dataset import get_rna_dataloader
+from protenix.data.rna_dataset_comp import get_rna_dataloader
+
 from protenix.metrics.lddt_metrics import LDDTMetrics
 from protenix.model.loss import ProtenixLoss
 from protenix.model.protenix import Protenix
@@ -186,7 +188,7 @@ class AF3Trainer(object):
     def init_data(self):
         self.configs.input_json_path = "./examples/casp16_part.json"
         self.configs.dump_dir = "./output/"
-        self.configs.use_msa = True
+        #self.configs.use_msa = True
         self.configs.num_workers = 4
         dataloader = get_rna_dataloader(configs=self.configs)
         self.train_dl, test_dl = dataloader, dataloader

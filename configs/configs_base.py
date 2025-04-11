@@ -46,6 +46,7 @@ basic_configs = {
     "ema_decay": -1.0,
     "eval_ema_only": False,  # whether wandb only tracking ema checkpoint metrics
     "ema_mutable_param_keywords": [""],
+    "use_msa": False,
 }
 data_configs = {
     # Data

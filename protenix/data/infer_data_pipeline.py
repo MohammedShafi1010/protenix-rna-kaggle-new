@@ -194,6 +194,7 @@ class InferenceDataset(Dataset):
         entity_to_asym_id = DataPipeline.get_label_entity_id_to_asym_id_int(atom_array)
         msa_features = (
             InferenceMSAFeaturizer.make_msa_feature(
+                pdb_name = single_sample_dict["name"],
                 bioassembly=single_sample_dict["sequences"],
                 entity_to_asym_id=entity_to_asym_id,
                 token_array=token_array,
@@ -202,7 +203,8 @@ class InferenceDataset(Dataset):
             if self.use_msa
             else {}
         )
-
+        # print(msa_features)
+        # exit(0)
         # Make dummy features for not implemented features
         dummy_feats = ["template"]
         if len(msa_features) == 0:

@@ -17,12 +17,12 @@
 # wget -P /af3-dev/release_model/ https://af3-dev.tos-cn-beijing.volces.com/release_model/model_v0.2.0.pt
 checkpoint_path="/home/lhw/work/rna2025/release_data/checkpoint//model_v0.2.0.pt"
 
-CUDA_VISIBLE_DEVICES=0 python3 ./runner/train.py \
---run_name output_comp_no_msa \
+CUDA_VISIBLE_DEVICES=1 python3 ./runner/train.py \
+--run_name output_comp_with_msa \
 --seed 42 \
---base_dir ./output_comp_no_msa \
+--base_dir ./output_comp_with_msa \
 --dtype bf16 \
---use_msa false \
+--use_msa true \
 --project protenix \
 --use_wandb true \
 --diffusion_batch_size 8 \

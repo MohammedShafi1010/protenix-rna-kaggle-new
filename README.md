@@ -1,3 +1,25 @@
+# finetune
+```shell
+sh finetune_demo.sh 
+sh finetune_demo_msa.sh
+```
+# exp
+
+overfit: casp16 (44 samples)
+
+| exp                              | steps | seq_len_crop          | LB    |
+|----------------------------------|-------|-----------------------|-------|
+| overfit vfold top1               | 1000  | 416                   | 0.454 |
+| overfit vfold top5 dynamic match | 1000  | 384 (416 OOM on 5090) | 0.467 |
+
+comp data: 799 samples (len<=416) 
+
+| exp         | steps | seq_len      | LB  |
+|-------------|-------|--------------|-----|
+| without msa | 12000  | 416          | xxx |
+| with msa    | 12000  | 416          | xxx |
+
+
 # Protenix: Protein + X
 
 A trainable PyTorch reproduction of [AlphaFold 3](https://www.nature.com/articles/s41586-024-07487-w).

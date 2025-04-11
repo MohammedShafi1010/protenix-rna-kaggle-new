@@ -33,4 +33,5 @@ inference_configs = {
     ),
     "num_workers": 16,
     "use_msa": True,
+    "use_rna_msa": False,
 }
