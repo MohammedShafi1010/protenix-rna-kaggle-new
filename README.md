@@ -1,3 +1,5 @@
+Forked from https://github.com/bytedance/Protenix/tree/main
+
 # finetune
 ```shell
 sh finetune_demo.sh 
@@ -14,11 +16,13 @@ overfit: casp16 (44 samples)
 
 comp data: 799 samples (len<=416) 
 
-| exp         | steps | seq_len      | LB  |
-|-------------|-------|--------------|-----|
-| without msa | 12000  | 416          | xxx |
-| with msa    | 12000  | 416          | xxx |
+| exp         | steps | seq_len      | LB    |
+|-------------|-------|--------------|-------|
+| without msa | 4000  | 416          | 0.293 |
+| with msa    | 4000  | 416          | xxx   |
 
+modify proteinx/data/rna_dataset_comp.py data_dir when train (line: 96)
+and modify runner/inference.py checkpoint_path when infer (line: 108)
 
 # Protenix: Protein + X
 

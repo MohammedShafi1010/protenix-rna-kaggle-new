@@ -168,10 +168,9 @@ class SimpleRNADataset(Dataset):
 
             structure_data[target_id]["seq"] += resname
 
-            # 提取第一个有效的原子坐标（跳过 -1e+18）
             max_n = 41 if is_valid else  2
             xyzs = []
-            for i in range(1, max_n):  # 假设最多 40 个原子坐标
+            for i in range(1, max_n):
                 x, y, z = row[f"x_{i}"], row[f"y_{i}"], row[f"z_{i}"]
                 if x == -1e18 and y == -1e18 and z == -1e18:
                     break

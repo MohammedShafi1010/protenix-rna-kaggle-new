@@ -31,7 +31,7 @@ CUDA_VISIBLE_DEVICES=1 python3 ./runner/train.py \
 --checkpoint_interval 2000 \
 --ema_decay 0.995 \
 --train_crop_size 416 \
---max_steps 12000 \
+--max_steps 4000 \
 --warmup_steps 50 \
 --lr 0.0001 \
 --sample_diffusion.N_step 20 \
