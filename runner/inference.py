@@ -1,3 +1,6 @@
+# Inference.py
+
+
 # Copyright 2024 ByteDance and/or its affiliates.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -11,7 +14,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 import logging
 import os
 import traceback
@@ -20,14 +22,12 @@ from contextlib import nullcontext
 from os.path import exists as opexists
 from os.path import join as opjoin
 from typing import Any, Mapping
-
 import torch
 import torch.distributed as dist
 from configs.configs_base import configs as configs_base
 from configs.configs_data import data_configs
 from configs.configs_inference import inference_configs
 from runner.dumper import DataDumper
-
 from protenix.config import parse_configs, parse_sys_args
 from protenix.data.infer_data_pipeline import get_inference_dataloader
 from protenix.model.protenix import Protenix
@@ -35,9 +35,7 @@ from protenix.utils.distributed import DIST_WRAPPER
 from protenix.utils.seed import seed_everything
 from protenix.utils.torch_utils import to_device
 from protenix.web_service.dependency_url import URL
-
 logger = logging.getLogger(__name__)
-
 
 class InferenceRunner(object):
     def __init__(self, configs: Any) -> None:
@@ -50,7 +48,6 @@ class InferenceRunner(object):
             need_atom_confidence=configs.need_atom_confidence,
             sorted_by_ranking_score=configs.sorted_by_ranking_score,
         )
-
     def init_env(self) -> None:
         self.print(
             f"Distributed environment: world size: {DIST_WRAPPER.world_size}, "
@@ -85,27 +82,25 @@ class InferenceRunner(object):
             logging.info(
                 "The kernels will be compiled when fast_layernorm is called for the first time."
             )
-
         logging.info("Finished init ENV.")
-
     def init_basics(self) -> None:
         self.dump_dir = self.configs.dump_dir
         self.error_dir = opjoin(self.dump_dir, "ERR")
         os.makedirs(self.dump_dir, exist_ok=True)
         os.makedirs(self.error_dir, exist_ok=True)
-
     def init_model(self) -> None:
         
         self.model = Protenix(self.configs).to(self.device)
-
     def load_checkpoint(self) -> None:
         checkpoint_path = self.configs.load_checkpoint_path
-        checkpoint_path = '/home/lhw/work/rna2025/Protenix/output/protenix_finetune_20250409_185733/checkpoints/499_ema_0.995.pt'
+        checkpoint_path = "./release_data/checkpoint/model_v0.2.0.pt"
+        checkpoint_path = "./output_comp_with_msa/output_comp_with_msa_20250513_182023/checkpoints/9.pt"
+        # checkpoint_path = '/home/lhw/work/rna2025/Protenix/output/protenix_finetune_20250409_185733/checkpoints/499_ema_0.995.pt'
         #checkpoint_path = '/home/lhw/work/rna2025/Protenix/output/protenix_finetune_20250409_180051/checkpoints/99_ema_0.999.pt'
         #checkpoint_path = '/home/lhw/work/rna2025/Protenix/output/protenix_finetune_20250409_180051/checkpoints/99.pt'
         #checkpoint_path = '/home/lhw/work/rna2025/Protenix/output2/protenix_finetune_20250410_081032/checkpoints/999_ema_0.995.pt'
         #checkpoint_path = '/home/lhw/work/rna2025/Protenix/output_top5/protenix_finetune_20250410_142904/checkpoints/999_ema_0.995.pt'
-        checkpoint_path = '/home/lhw/work/rna2025/Protenix/output_comp_no_msa/protenix_finetune_20250410_204706/checkpoints/3999_ema_0.995.pt'
+        # checkpoint_path = '/home/lhw/work/rna2025/Protenix/output_comp_no_msa/protenix_finetune_20250410_204706/checkpoints/3999_ema_0.995.pt'
         print(checkpoint_path)
         #exit(0)
         
@@ -115,7 +110,6 @@ class InferenceRunner(object):
             f"Loading from {checkpoint_path}, strict: {self.configs.load_strict}"
         )
         checkpoint = torch.load(checkpoint_path, self.device)
-
         sample_key = [k for k in checkpoint["model"].keys()][0]
         self.print(f"Sampled key: {sample_key}")
         if sample_key.startswith("module."):  # DDP checkpoint has module. prefix
@@ -128,7 +122,6 @@ class InferenceRunner(object):
         )
         self.model.eval()
         self.print(f"Finish loading checkpoint.")
-
     def init_dumper(
         self, need_atom_confidence: bool = False, sorted_by_ranking_score: bool = True
     ):
@@ -137,7 +130,6 @@ class InferenceRunner(object):
             need_atom_confidence=need_atom_confidence,
             sorted_by_ranking_score=sorted_by_ranking_score,
         )
-
     def print_dict(self, d):
         for k, v in d.items():
             if isinstance(v, torch.Tensor):
@@ -145,7 +137,6 @@ class InferenceRunner(object):
             else:
                 pass
                 #print(f"{k}: {v}")
-
     # Adapted from runner.train.Trainer.evaluate
     @torch.no_grad()
     def predict(self, data: Mapping[str, Mapping[str, Any]]) -> dict[str, torch.Tensor]:
@@ -162,7 +153,6 @@ class InferenceRunner(object):
         )
 #         print('input_feature_dict: ', self.print_dict(data["input_feature_dict"]))
 #         exit(0)
-
         data = to_device(data, self.device)
         with enable_amp:
             prediction, _, _ = self.model(
@@ -171,19 +161,14 @@ class InferenceRunner(object):
                 label_dict=None,
                 mode="inference",
             )
-
         return prediction
-
     def print(self, msg: str):
         if DIST_WRAPPER.rank == 0:
             logger.info(msg)
-
     def update_model_configs(self, new_configs: Any) -> None:
         self.model.configs = new_configs
 
-
 def download_infercence_cache(configs: Any, model_version: str = "v0.2.0") -> None:
-
     for cache_name in ("ccd_components_file", "ccd_components_rdkit_mol_file"):
         cur_cache_fpath = configs["data"][cache_name]
         if not opexists(cur_cache_fpath):
@@ -197,9 +182,7 @@ def download_infercence_cache(configs: Any, model_version: str = "v0.2.0") -> No
                 f"Downloading data cache from\n {tos_url}... to {cur_cache_fpath}"
             )
             urllib.request.urlretrieve(tos_url, cur_cache_fpath)
-
     checkpoint_path = configs.load_checkpoint_path
-
     if not opexists(checkpoint_path):
         os.makedirs(os.path.dirname(checkpoint_path), exist_ok=True)
         tos_url = URL[f"model_{model_version}"]
@@ -217,7 +200,6 @@ def download_infercence_cache(configs: Any, model_version: str = "v0.2.0") -> No
                 f"wget {tos_url} -O {checkpoint_path}"
             )
 
-
 def update_inference_configs(configs: Any, N_token: int):
     # Setting the default inference configs for different N_token and N_atom
     # when N_token is larger than 3000, the default config might OOM even on a
@@ -233,7 +215,6 @@ def update_inference_configs(configs: Any, N_token: int):
         configs.skip_amp.sample_diffusion = True
     return configs
 
-
 def infer_predict(runner: InferenceRunner, configs: Any) -> None:
     # Data
     logger.info(f"Loading data from\n{configs.input_json_path}")
@@ -245,7 +226,6 @@ def infer_predict(runner: InferenceRunner, configs: Any) -> None:
         with open(opjoin(runner.error_dir, "error.txt"), "a") as f:
             f.write(error_message)
         return
-
     num_data = len(dataloader.dataset)
     for seed in configs.seeds:
         seed_everything(seed=seed, deterministic=configs.deterministic)
@@ -253,13 +233,11 @@ def infer_predict(runner: InferenceRunner, configs: Any) -> None:
             try:
                 data, atom_array, data_error_message = batch[0]
                 sample_name = data["sample_name"]
-
                 if len(data_error_message) > 0:
                     logger.info(data_error_message)
                     with open(opjoin(runner.error_dir, f"{sample_name}.txt"), "a") as f:
                         f.write(data_error_message)
                     continue
-
                 logger.info(
                     (
                         f"[Rank {DIST_WRAPPER.rank} ({data['sample_index'] + 1}/{num_data})] {sample_name}: "
@@ -278,7 +256,6 @@ def infer_predict(runner: InferenceRunner, configs: Any) -> None:
                     atom_array=atom_array,
                     entity_poly_type=data["entity_poly_type"],
                 )
-
                 logger.info(
                     f"[Rank {DIST_WRAPPER.rank}] {data['sample_name']} succeeded.\n"
                     f"Results saved to {configs.dump_dir}"
@@ -293,12 +270,10 @@ def infer_predict(runner: InferenceRunner, configs: Any) -> None:
                 if hasattr(torch.cuda, "empty_cache"):
                     torch.cuda.empty_cache()
 
-
 def main(configs: Any) -> None:
     # Runner
     runner = InferenceRunner(configs)
     infer_predict(runner, configs)
-
 
 def run() -> None:
     LOG_FORMAT = "%(asctime)s,%(msecs)-3d %(levelname)-8s [%(filename)s:%(lineno)s %(funcName)s] %(message)s"
@@ -321,6 +296,6 @@ def run() -> None:
     print(configs)
     main(configs)
 
-
 if __name__ == "__main__":
     run()
+

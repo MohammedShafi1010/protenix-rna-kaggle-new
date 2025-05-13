@@ -1,0 +1,17 @@
+[
+    {
+        "sequences": [
+            {
+                "rnaSequence": {
+                    "sequence": "GGGUGCUCAGUACGAGAGGAACCGCACCC",
+                    "count": 1,
+                "msa": {
+                    "precomputed_msa_dir": "./data/MSA/",
+                    "pairing_db": ""
+                }
+                }
+            }
+        ],
+        "name": "1SCL_A"
+    }
+]

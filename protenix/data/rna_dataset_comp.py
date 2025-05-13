@@ -93,7 +93,7 @@ class SimpleRNADataset(Dataset):
         use_msa: bool = True,
         crop_size=420
     ) -> None:
-        data_dir = '/home/lhw/work/rna2025/data/'
+        data_dir = '/home/ubuntu/shafi_workspace/Protenix-RNA-Kaggle/data/'
         label_fn = data_dir + 'train_labels.csv'
         label_dict = self.parse_labels(label_fn)
 #         print(len(label_dict['1ZDI_S']['seq']))
@@ -125,7 +125,7 @@ class SimpleRNADataset(Dataset):
                     "sequence": sequence,
                     "count": 1,
                      "msa": {
-                           "precomputed_msa_dir": "/home/lhw/work/rna2025/data/MSA/",
+                           "precomputed_msa_dir": "/home/ubuntu/shafi_workspace/Protenix-RNA-Kaggle/data/MSA",
                            "pairing_db": ""
                           },
                   },

@@ -15,9 +15,10 @@
 #export LAYERNORM_TYPE=fast_layernorm
 #export USE_DEEPSPEED_EVO_ATTENTION=true
 # wget -P /af3-dev/release_model/ https://af3-dev.tos-cn-beijing.volces.com/release_model/model_v0.2.0.pt
-checkpoint_path="/home/lhw/work/rna2025/release_data/checkpoint//model_v0.2.0.pt"
+export USE_DEEPSPEED_EVO_ATTENTION=false
+checkpoint_path="/home/ubuntu/shafi_workspace/Protenix-RNA-Kaggle/release_data/checkpoint/model_v0.2.0.pt"
 
-CUDA_VISIBLE_DEVICES=1 python3 ./runner/train.py \
+python3 ./runner/train.py \
 --run_name output_comp_with_msa \
 --seed 42 \
 --base_dir ./output_comp_with_msa \
@@ -28,11 +29,11 @@ CUDA_VISIBLE_DEVICES=1 python3 ./runner/train.py \
 --diffusion_batch_size 8 \
 --eval_interval 50000 \
 --log_interval 1 \
---checkpoint_interval 2000 \
+--checkpoint_interval 100 \
 --ema_decay 0.995 \
---train_crop_size 416 \
---max_steps 4000 \
---warmup_steps 50 \
+--train_crop_size 200 \
+--max_steps 10 \
+--warmup_steps 1 \
 --lr 0.0001 \
 --sample_diffusion.N_step 20 \
 --load_checkpoint_path ${checkpoint_path} \
