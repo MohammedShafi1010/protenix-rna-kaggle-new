@@ -94,7 +94,7 @@ class InferenceRunner(object):
     def load_checkpoint(self) -> None:
         checkpoint_path = self.configs.load_checkpoint_path
         checkpoint_path = "./release_data/checkpoint/model_v0.2.0.pt"
-        checkpoint_path = "./output_comp_with_msa/output_comp_with_msa_20250513_182023/checkpoints/9.pt"
+        checkpoint_path = "./output_comp_with_msa/output_comp_with_msa_20250515_060927/checkpoints/99.pt"
         # checkpoint_path = '/home/lhw/work/rna2025/Protenix/output/protenix_finetune_20250409_185733/checkpoints/499_ema_0.995.pt'
         #checkpoint_path = '/home/lhw/work/rna2025/Protenix/output/protenix_finetune_20250409_180051/checkpoints/99_ema_0.999.pt'
         #checkpoint_path = '/home/lhw/work/rna2025/Protenix/output/protenix_finetune_20250409_180051/checkpoints/99.pt'

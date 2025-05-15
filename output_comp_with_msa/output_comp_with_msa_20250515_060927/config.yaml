@@ -8,7 +8,7 @@ af3_lr_scheduler:
   decay_every_n_steps: 50000
   decay_factor: 0.95
   lr: 0.0001
-  warmup_steps: 1
+  warmup_steps: 10
 atom_permutation:
   global_align_wo_symmetric_atom: false
   permute_by_pocket: true
@@ -38,7 +38,7 @@ chain_permutation:
   train:
     diffusion_sample: false
     mini_rollout: true
-checkpoint_interval: 100
+checkpoint_interval: 2000
 data:
   ccd_components_file: /home/ubuntu/shafi_workspace/Protenix-RNA-Kaggle/release_data/ccd_cache/components.v20240608.cif
   ccd_components_rdkit_mol_file: /home/ubuntu/shafi_workspace/Protenix-RNA-Kaggle/release_data/ccd_cache/components.v20240608.cif.rdkit_mol.pkl
@@ -137,7 +137,7 @@ data:
       random_sample_if_failed: true
       use_reference_chains_only: false
     cropping_configs:
-      crop_size: 200
+      crop_size: 380
       method_weights:
       - 0.2
       - 0.4
@@ -159,7 +159,7 @@ data:
     shuffle_sym_ids: false
 decay_every_n_steps: 50000
 deterministic: false
-diffusion_batch_size: 8
+diffusion_batch_size: 48
 diffusion_chunk_size: 4
 dtype: bf16
 ema_decay: 0.995
@@ -242,7 +242,7 @@ loss_metrics_sparse_enable: true
 lr: 0.0001
 lr_scheduler: af3
 max_atoms_per_token: 24
-max_steps: 10
+max_steps: 100
 metrics:
   chain_ranker_keys:
   - chain_ptm
@@ -365,7 +365,7 @@ test_max_n_token: -1
 test_shuffle_mols: false
 test_shuffle_sym_ids: false
 train_confidence_only: false
-train_crop_size: 200
+train_crop_size: 380
 train_lig_atom_rename: false
 train_noise_sampler:
   p_mean: -1.2
@@ -381,4 +381,4 @@ use_msa: true
 use_wandb: true
 use_xformer: false
 wandb_id: ''
-warmup_steps: 1
+warmup_steps: 10

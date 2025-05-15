@@ -26,7 +26,6 @@ python3 runner/inference.py \
 --sample_diffusion.N_sample ${N_sample} \
 --sample_diffusion.N_step ${N_step} \
 --use_msa false
---
 # The following is a demo to use DDP for inference
 # torchrun \
 #     --nproc_per_node $NPROC \
