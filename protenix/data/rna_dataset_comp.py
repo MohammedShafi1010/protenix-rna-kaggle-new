@@ -94,7 +94,7 @@ class SimpleRNADataset(Dataset):
         crop_size=420
     ) -> None:
         data_dir = '/home/ubuntu/shafi_workspace/Protenix-RNA-Kaggle/data/'
-        label_fn = data_dir + 'train_labels.csv'
+        label_fn = data_dir + 'train_labels_filtered.csv'
         label_dict = self.parse_labels(label_fn)
 #         print(len(label_dict['1ZDI_S']['seq']))
 #         print(label_dict['1ZDI_S']['xyz'].shape)
@@ -107,7 +107,7 @@ class SimpleRNADataset(Dataset):
         #exit(0)
         self.use_msa = use_msa
         
-        seq_fn = data_dir + 'train_sequences.csv'
+        seq_fn = data_dir + 'train_sequences_filtered.csv'
         df = pd.read_csv(seq_fn)
         self.inputs = []
         for _, row in df.iterrows():
