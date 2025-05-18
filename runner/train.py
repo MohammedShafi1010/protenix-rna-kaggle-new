@@ -433,14 +433,14 @@ class AF3Trainer(object):
             self._pbar = tqdm(
                 range(
                     self.global_step
-                    % (self.iters_to_accumulate * self.configs.eval_interval),
-                    self.iters_to_accumulate * self.configs.eval_interval,
+                    % (self.iters_to_accumulate * self.configs.max_steps),
+                    self.iters_to_accumulate * self.configs.max_steps,
                 )
             )
             self._ipbar = iter(self._pbar)
         step = next(self._ipbar)
         self._pbar.set_description(
-            f"[step {self.step}: {step}/{self.iters_to_accumulate * self.configs.eval_interval}] {desc}"
+            f"[step {self.step}: {step}/{self.iters_to_accumulate * self.configs.max_steps}] {desc}"
         )
         return
     def run(self):

@@ -32,7 +32,7 @@ python3 ./runner/train.py \
 --checkpoint_interval 2000 \
 --ema_decay 0.995 \
 --train_crop_size 380 \
---max_steps 1 \
+--max_steps 50 \
 --warmup_steps 1 \
 --lr 0.0001 \
 --sample_diffusion.N_step 20 \
