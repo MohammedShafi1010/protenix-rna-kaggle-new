@@ -17,7 +17,7 @@ atom_permutation:
   train:
     diffusion_sample: false
     mini_rollout: true
-base_dir: ./output_comp_no_msa
+base_dir: ./output_comp_with_msa
 blocks_per_ckpt: 1
 c_atom: 128
 c_atompair: 16
@@ -38,7 +38,7 @@ chain_permutation:
   train:
     diffusion_sample: false
     mini_rollout: true
-checkpoint_interval: 100
+checkpoint_interval: 2000
 data:
   ccd_components_file: /home/ubuntu/shafi_workspace/Protenix-RNA-Kaggle/release_data/ccd_cache/components.v20240608.cif
   ccd_components_rdkit_mol_file: /home/ubuntu/shafi_workspace/Protenix-RNA-Kaggle/release_data/ccd_cache/components.v20240608.cif.rdkit_mol.pkl
@@ -137,7 +137,7 @@ data:
       random_sample_if_failed: true
       use_reference_chains_only: false
     cropping_configs:
-      crop_size: 200
+      crop_size: 380
       method_weights:
       - 0.2
       - 0.4
@@ -159,7 +159,7 @@ data:
     shuffle_sym_ids: false
 decay_every_n_steps: 50000
 deterministic: false
-diffusion_batch_size: 8
+diffusion_batch_size: 48
 diffusion_chunk_size: 4
 dtype: bf16
 ema_decay: 0.995
@@ -167,7 +167,7 @@ ema_mutable_param_keywords:
 - ''
 eval_ema_only: false
 eval_first: false
-eval_interval: 50000
+eval_interval: 1
 eval_only: false
 find_unused_parameters: false
 grad_clip_norm: 10
@@ -183,7 +183,7 @@ inference_noise_scheduler:
   sigma_data: 16.0
 iters_to_accumulate: 1
 load_checkpoint_path: /home/ubuntu/shafi_workspace/Protenix-RNA-Kaggle/release_data/checkpoint/model_v0.2.0.pt
-load_ema_checkpoint_path: /home/ubuntu/shafi_workspace/Protenix-RNA-Kaggle/release_data/checkpoint/model_v0.2.0.pt
+load_ema_checkpoint_path: ''
 load_params_only: true
 load_strict: true
 log_interval: 1
@@ -242,7 +242,7 @@ loss_metrics_sparse_enable: true
 lr: 0.0001
 lr_scheduler: af3
 max_atoms_per_token: 24
-max_steps: 10
+max_steps: 1
 metrics:
   chain_ranker_keys:
   - chain_ptm
@@ -340,7 +340,7 @@ model:
 n_blocks: 48
 no_bins: 64
 project: protenix
-run_name: output_comp_no_msa
+run_name: output_comp_with_msa
 sample_diffusion:
   N_sample: 5
   N_sample_mini_rollout: 1
@@ -365,7 +365,7 @@ test_max_n_token: -1
 test_shuffle_mols: false
 test_shuffle_sym_ids: false
 train_confidence_only: false
-train_crop_size: 200
+train_crop_size: 380
 train_lig_atom_rename: false
 train_noise_sampler:
   p_mean: -1.2
@@ -377,7 +377,7 @@ use_deepspeed_evo_attention: false
 use_flash: false
 use_lma: false
 use_memory_efficient_kernel: false
-use_msa: false
+use_msa: true
 use_wandb: true
 use_xformer: false
 wandb_id: ''

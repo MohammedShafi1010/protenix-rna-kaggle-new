@@ -1,19 +1,3 @@
-#Train.py
-
-
-# Copyright 2024 ByteDance and/or its affiliates.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#      http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 import datetime
 import logging
 import os
@@ -174,15 +158,15 @@ class AF3Trainer(object):
         self.configs.dump_dir = "./output/"
         #self.configs.use_msa = True
         self.configs.num_workers = 4
-        dataloader = get_rna_dataloader(configs=self.configs)
-        self.train_dl, test_dl = dataloader, dataloader
-        self.test_dls = {"default": test_dl}
-        # self.train_dl, self.test_dls = get_dataloaders(
-        #     self.configs,
-        #     DIST_WRAPPER.world_size,
-        #     seed=self.configs.seed,
-        #     error_dir=self.error_dir,
-        # )
+        # dataloader = get_rna_dataloader(configs=self.configs)
+        # self.train_dl, test_dl = dataloader, dataloader
+        # self.test_dls = {"default": test_dl}
+        # create separate train / val loaders
+        train_dl = get_rna_dataloader(self.configs, split="train")
+        val_dl   = get_rna_dataloader(self.configs, split="val")
+
+        self.train_dl   = train_dl
+        self.test_dls   = {"default": val_dl}
     def save_checkpoint(self, ema_suffix=""):
         if DIST_WRAPPER.rank == 0:
             path = f"{self.checkpoint_dir}/{self.step}{ema_suffix}.pt"
@@ -264,15 +248,9 @@ class AF3Trainer(object):
                 print(f"{k}: ", v.shape)
             else:
                 pass
-                #print(f"{k}: {v}")
     def model_forward(self, batch: dict, mode: str = "train") -> tuple[dict, dict]:
         assert mode in ["train", "eval"]
-        #print(batch.keys() )
         print(batch["input_feature_dict"]["token_index"].shape)
-        #print(batch["input_feature_dict"]["entity_mol_id"] )
-        #print('input_feature_dict: ')
-        #self.print_dict(batch["input_feature_dict"])
-        #N = batch["input_feature_dict"]["is_rna"].shape[0]
         batch["label_full_dict"] = {
             'entity_mol_id': batch["input_feature_dict"]["entity_mol_id"],
             'mol_id':  batch["input_feature_dict"]["mol_id"],
@@ -284,28 +262,9 @@ class AF3Trainer(object):
         }
         if 'coordinate_multi' in batch.keys():
             batch["label_dict"]['coordinate_multi'] = batch["coordinate_multi"]
-        #print("coordinate shape: ", batch["coordinate"].shape)
-        #print("coordinate_mask shape: ", batch["coordinate_mask"].shape)
-        # batch["label_dict"] = {
-        #     "coordinate": torch.zeros((N, 3),
-        #                               device=batch["input_feature_dict"]["is_rna"].device),
-        #     "coordinate_mask": torch.ones(N,
-        #                               device=batch["input_feature_dict"]["is_rna"].device),
-        # }
+
         batch["label_full_dict"].update(batch["label_dict"])
-        #print(batch["label_full_dict"])
-        #exit(0)
-        #
-        # print(batch["label_full_dict"]['atom_perm_list'])
-        # print(len(batch["label_full_dict"]['atom_perm_list']))
-        #
-        # # print('label_full_dict: ')
-        # # self.print_dict(batch["label_full_dict"])
-        # # print('label_dict: ')
-        # # self.print_dict(batch["label_dict"])
-        # exit(0)
-        #print("batch[\"label_dict\"]['coordinate'][:20]..")
-        #print(batch["label_dict"]['coordinate'][:20])
+
         batch["pred_dict"], batch["label_dict"], log_dict = self.model(
             input_feature_dict=batch["input_feature_dict"],
             label_dict=batch["label_dict"],
@@ -315,9 +274,6 @@ class AF3Trainer(object):
             symmetric_permutation=self.symmetric_permutation,
         )
 
-        # print('pred_dict .... ')
-        # self.print_dict(batch["pred_dict"])
-        # exit(0)
         return batch, log_dict
     def get_loss(
         self, batch: dict, mode: str = "train"
@@ -350,10 +306,10 @@ class AF3Trainer(object):
     def evaluate(self, mode: str = "eval"):
         if not self.configs.eval_ema_only:
             self._evaluate()
-        if hasattr(self, "ema_wrapper"):
-            self.ema_wrapper.apply_shadow()
-            self._evaluate(ema_suffix=f"ema{self.ema_wrapper.decay}_", mode=mode)
-            self.ema_wrapper.restore()
+        # if hasattr(self, "ema_wrapper"):
+        #     self.ema_wrapper.apply_shadow()
+        #     self._evaluate(ema_suffix=f"ema{self.ema_wrapper.decay}_", mode=mode)
+        #     self.ema_wrapper.restore()
     @torch.no_grad()
     def _evaluate(self, ema_suffix: str = "", mode: str = "eval"):
         # Init Metric Aggregator
@@ -374,6 +330,10 @@ class AF3Trainer(object):
             evaluated_pids = []
             total_batch_num = len(test_dl)
             for index, batch in enumerate(tqdm(test_dl)):
+                # before to_device:
+                if isinstance(batch, list):
+                    print('len batch: ', len(batch))
+                    batch = batch[0]
                 batch = to_device(batch, self.device)
                 pid = batch["basic"]["pdb_id"]
                 if index + 1 == total_batch_num and DIST_WRAPPER.world_size > 1:

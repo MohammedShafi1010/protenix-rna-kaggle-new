@@ -1,16 +1,3 @@
-# Copyright 2024 ByteDance and/or its affiliates.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#      http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 import glob
 import json
 import logging
@@ -45,7 +32,8 @@ logger = logging.getLogger(__name__)
 warnings.filterwarnings("ignore", module="biotite")
 
 
-def get_rna_dataloader(configs: Any) -> DataLoader:
+# def get_rna_dataloader(configs: Any) -> DataLoader:
+def get_rna_dataloader(configs: Any, split: str = "train") -> DataLoader:
     """
     Creates and returns a DataLoader for inference using the SimpleRNADataset.
 
@@ -67,12 +55,12 @@ def get_rna_dataloader(configs: Any) -> DataLoader:
         dump_dir=configs.dump_dir,
         use_msa=configs.use_msa,
         crop_size = crop_size,
+        split=split,
     )
     sampler = DistributedSampler(
         dataset=inference_dataset,
         num_replicas=DIST_WRAPPER.world_size,
         rank=DIST_WRAPPER.rank,
-        #shuffle=False,
         shuffle=True,
     )
     dataloader = DataLoader(
@@ -91,15 +79,26 @@ class SimpleRNADataset(Dataset):
         input_json_path: str,
         dump_dir: str,
         use_msa: bool = True,
-        crop_size=420
+        crop_size: int = 420,
+        split: str = "train",
     ) -> None:
         data_dir = '/home/ubuntu/shafi_workspace/Protenix-RNA-Kaggle/data/'
-        label_fn = data_dir + 'train_labels_filtered.csv'
-        label_dict = self.parse_labels(label_fn)
-#         print(len(label_dict['1ZDI_S']['seq']))
-#         print(label_dict['1ZDI_S']['xyz'].shape)
-#         print(label_dict['1ZDI_S']['xyz'])
-#         exit(0)
+        # label_fn = data_dir + 'train_labels_filtered.csv'
+        # label_dict = self.parse_labels(label_fn)
+
+        # pick CSVs based on split
+        if split == "train":
+            seq_fn   = data_dir + 'train_sequences_filtered.csv'
+            label_fn = data_dir + 'train_labels_filtered.csv'
+            is_val   = False
+        elif split == "val":
+            seq_fn   = data_dir + 'validation_sequences.csv'
+            label_fn = data_dir + 'validation_labels.csv'
+            is_val   = True
+        else:
+            raise ValueError(f"Unknown split={split!r}; must be 'train' or 'val'.")
+
+        label_dict = self.parse_labels(label_fn, is_valid=is_val)
 
         self.input_json_path = input_json_path
         self.dump_dir = dump_dir
@@ -107,7 +106,6 @@ class SimpleRNADataset(Dataset):
         #exit(0)
         self.use_msa = use_msa
         
-        seq_fn = data_dir + 'train_sequences_filtered.csv'
         df = pd.read_csv(seq_fn)
         self.inputs = []
         for _, row in df.iterrows():
@@ -134,10 +132,7 @@ class SimpleRNADataset(Dataset):
                 "name": target_id
                })
         
-            
-#         print(self.inputs[0])
-#         print(len(self.inputs))
-#         exit(0)
+        
         print('data samples: ', len(self.inputs))
         self.name_to_xyz = {}
         for name in label_dict.keys():
@@ -147,16 +142,9 @@ class SimpleRNADataset(Dataset):
         self.crop_size = crop_size
 
     def parse_labels(self,csv_file, is_valid=False):
-        # ID, resname, resid, x_1, y_1, z_1, x_2, y_2, z_2, x_3, y_3, z_3, x_4, y_4, z_4, x_5, y_5, z_5, x_6, y_6, z_6, x_7, y_7, z_7, x_8, y_8, z_8, x_9, y_9, z_9, x_10, y_10, z_10, x_11, y_11, z_11, x_12, y_12, z_12, x_13, y_13, z_13, x_14, y_14, z_14, x_15, y_15, z_15, x_16, y_16, z_16, x_17, y_17, z_17, x_18, y_18, z_18, x_19, y_19, z_19, x_20, y_20, z_20, x_21, y_21, z_21, x_22, y_22, z_22, x_23, y_23, z_23, x_24, y_24, z_24, x_25, y_25, z_25, x_26, y_26, z_26, x_27, y_27, z_27, x_28, y_28, z_28, x_29, y_29, z_29, x_30, y_30, z_30, x_31, y_31, z_31, x_32, y_32, z_32, x_33, y_33, z_33, x_34, y_34, z_34, x_35, y_35, z_35, x_36, y_36, z_36, x_37, y_37, z_37, x_38, y_38, z_38, x_39, y_39, z_39, x_40, y_40, z_40
-        # R1107_1, G, 1, -5.499000072479248, 8.520000457763672, 8.604999542236328, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18
-        # R1107_2, G, 2, -5.826000213623047, 10.45300006866455, 14.010000228881836, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18
-        # R1107_3, G, 3, -5.848999977111816, 14.767999649047852, 17.584999084472656, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18
-        # R1107_4, G, 4, -5.783999919891357, 19.98500061035156, 18.666000366210938, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18
-        # R1107_5, G, 5, -5.755000114440918, 25.53300094604492, 17.132999420166016, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18
-        # R1107_6, C, 6, -6.227000236511231, 30.093000411987305, 13.96500015258789, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18, -1e+18
         pass
         df = pd.read_csv(csv_file)
-        df.fillna(-1e8, inplace=True)
+        df.fillna(0, inplace=True)
 
         # extract to {pdb_name: {"seq": xxx,  xyz: np.array[n, seq_len, 3] } } if x_i, y_i, z_i not -1e18
         structure_data = defaultdict(lambda: {"seq": "", "xyz": []})
@@ -168,14 +156,17 @@ class SimpleRNADataset(Dataset):
 
             structure_data[target_id]["seq"] += resname
 
-            max_n = 41 if is_valid else  2
-            xyzs = []
-            for i in range(1, max_n):
-                x, y, z = row[f"x_{i}"], row[f"y_{i}"], row[f"z_{i}"]
-                if x == -1e18 and y == -1e18 and z == -1e18:
-                    break
-                xyzs.append([x, y, z])
+            # max_n = 41 if is_valid else  2
+            # xyzs = []
+            # for i in range(1, max_n):
+            #     x, y, z = row[f"x_{i}"], row[f"y_{i}"], row[f"z_{i}"]
+            #     if x == -1e18 and y == -1e18 and z == -1e18:
+            #         break
+            #     xyzs.append([x, y, z])
 
+            xyzs = []
+            x, y, z = row["x_1"], row["y_1"], row["z_1"]
+            xyzs.append([x, y, z])
             structure_data[target_id]["xyz"].append(xyzs)
 
         # 转为 NumPy 数组
@@ -234,9 +225,7 @@ class SimpleRNADataset(Dataset):
                 - An AtomArray object.
                 - A dictionary of time tracking statistics.
         """
-        # general features
         t0 = time.time()
-        # 5, seg_len, 3
         xyz = self.name_to_xyz[single_sample_dict["name"]]
         seq = single_sample_dict["sequences"][0]['rnaSequence']['sequence']
         assert  len(seq) == xyz.shape[1]
@@ -269,8 +258,6 @@ class SimpleRNADataset(Dataset):
         if only_top1:
             idx = 0
             for atom in atom_array:
-                # print('res_name: ', atom.res_name)
-                # print('atom.atom_name: ', atom.atom_name)
                 if atom.atom_name == 'C1\'':
                     coordinate_list.append(xyz[idx])
                     if xyz[idx][0] <= -1e8:
@@ -284,19 +271,14 @@ class SimpleRNADataset(Dataset):
             # print("xyz.shape, idx: ", xyz.shape, idx)
             assert idx == len(xyz)
         else:
-            #n_atom = len(atom_array)
             n_gt = len(xyz)
             print('n_gt: ',  n_gt)
-            #coordinate = np.zeros((n_gt, n_atom, 3), dtype=np.float32)
             coordinate_zero =[ [0, 0, 0] ] * n_gt
 
             idx = 0
             for atom in atom_array:
-                # print('res_name: ', atom.res_name)
-                # print('atom.atom_name: ', atom.atom_name)
                 if atom.atom_name == 'C1\'':
                     coordinate_list.append(xyz[:, idx].tolist() )
-                    #TODO fix 跨多个gt其中有一个小于就mask 0
                     if xyz[0, idx][0] <= -1e8:
                         coordinate_mask_list.append(0)
                     else:
@@ -419,9 +401,16 @@ class SimpleRNADataset(Dataset):
         data, atom_array, _ = self.process_one(
             single_sample_dict=single_sample_dict
         )
-        data["sample_name"] = single_sample_dict["name"]
+        # data["sample_name"] = single_sample_dict["name"]
+        # data["sample_index"] = index
+        # return data#, atom_array, error_message
+        # for trainer._evaluate() we need batch["basic"]["pdb_id"]
+        data["basic"] = {
+            "pdb_id": single_sample_dict["name"]
+        }
+        data["sample_name"]  = single_sample_dict["name"]
         data["sample_index"] = index
-        return data#, atom_array, error_message
+        return data
 
 if __name__ == '__main__':
     dset = SimpleRNADataset("", "")
