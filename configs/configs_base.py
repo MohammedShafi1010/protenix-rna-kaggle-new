@@ -28,7 +28,7 @@ basic_configs = {
     "eval_interval": RequiredValue(int),
     "log_interval": RequiredValue(int),
     "checkpoint_interval": -1,
-    "eval_first": False,  # run evaluate() before training steps
+    "eval_first": True,  # run evaluate() before training steps
     "iters_to_accumulate": 1,
     "eval_only": False,
     "load_checkpoint_path": "",

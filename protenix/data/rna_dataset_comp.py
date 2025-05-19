@@ -88,8 +88,8 @@ class SimpleRNADataset(Dataset):
 
         # pick CSVs based on split
         if split == "train":
-            seq_fn   = data_dir + 'train_sequences_filtered.csv'
-            label_fn = data_dir + 'train_labels_filtered.csv'
+            seq_fn   = data_dir + 'train_sequences.csv'
+            label_fn = data_dir + 'train_labels.csv'
             is_val   = False
         elif split == "val":
             seq_fn   = data_dir + 'validation_sequences.csv'
@@ -107,6 +107,15 @@ class SimpleRNADataset(Dataset):
         self.use_msa = use_msa
         
         df = pd.read_csv(seq_fn)
+        if split == "train":
+            df['temporal_cutoff'] = pd.to_datetime(df['temporal_cutoff'], dayfirst=True)
+
+            # 3) Define the cutoff threshold
+            cutoff_date = pd.Timestamp('2024-09-18')
+
+            # 4) Filter rows where cutoff is before September 18, 2024
+            df = df[df['temporal_cutoff'] < cutoff_date]
+
         self.inputs = []
         for _, row in df.iterrows():
             target_id = row['target_id']
