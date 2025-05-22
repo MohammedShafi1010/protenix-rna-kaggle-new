@@ -24,7 +24,7 @@ python3 ./runner/train.py \
 --base_dir ./output_comp_with_msa \
 --dtype bf16 \
 --use_msa true \
---project protenix \
+--project protenix_new \
 --use_wandb true \
 --diffusion_batch_size 8 \
 --eval_interval 250 \
@@ -32,7 +32,7 @@ python3 ./runner/train.py \
 --checkpoint_interval 250 \
 --ema_decay 0.995 \
 --train_crop_size 360 \
---max_steps 4000 \
+--max_steps 1 \
 --warmup_steps 1 \
 --lr 0.0001 \
 --sample_diffusion.N_step 20 \
