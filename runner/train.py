@@ -29,6 +29,43 @@ from runner.ema import EMAWrapper
 # Disable WANDB's console output capture to reduce unnecessary logging
 os.environ["WANDB_CONSOLE"] = "off"
 
+
+
+
+import torch.nn.functional as F
+
+
+# ---------- geometry helpers (FP32) ----------
+def kabsch_superimpose(P: torch.Tensor, Q: torch.Tensor) -> torch.Tensor:
+    """
+    Optimal rotation that aligns P to Q (rows = atoms, cols = xyz).
+    Both P and Q must already be centred.
+    Returns 3×3 rotation matrix (float32, cpu or cuda).
+    """
+    # cast to float32 for SVD stability on all accelerators
+    P32, Q32 = P.float(), Q.float()
+    H = P32.t() @ Q32                           # [3,3]
+    U, _, Vt = torch.linalg.svd(H)              # full-precision
+    R = Vt.t() @ U.t()
+    # det(R) should be +1; if not, fix improper rotation
+    if torch.det(R) < 0:
+        Vt[-1] *= -1
+        R = Vt.t() @ U.t()
+    return R.type_as(P)                         # back to original dtype
+
+
+def tm_score(P: torch.Tensor, Q: torch.Tensor) -> float:
+    """
+    TM-score between two aligned point clouds (after Kabsch).
+    Implementation follows Zhang & Skolnick 2004.
+    """
+    L = Q.size(0)
+    d0 = 1.24 * (L - 15) ** (1/3) - 1.8         # Å
+    d0 = max(d0, 0.5)
+    dist2 = torch.sum((P - Q) ** 2, dim=-1)     # [L]
+    score = torch.mean(1.0 / (1.0 + dist2 / (d0 ** 2)))
+    return float(score)
+
 class AF3Trainer(object):
     def __init__(self, configs):
         self.configs = configs
@@ -296,6 +333,44 @@ class AF3Trainer(object):
             batch["pred_dict"], batch["label_dict"]
         )
         return lddt_dict
+    
+    
+    # ---------- metric collector ----------
+    @torch.no_grad()
+    def _coord_metrics(self, batch: dict) -> dict:
+        """
+        Returns {mse_atom, rmsd_c1, tm_score} per-sample on masked atoms.
+        Works under any global autocast setting.
+        """
+        pred = batch["pred_dict"]["coordinate"][0]                  # [N,3]
+        true = batch["label_dict"]["coordinate"]                    # [N,3]
+        mask = batch["label_dict"]["coordinate_mask"].bool()        # [N]
+
+        pred = pred[mask]
+        true = true[mask]
+
+        # Disable autocast for numerics that need FP32 SVD
+        with torch.cuda.amp.autocast(False):
+            pred32 = pred.float()
+            true32 = true.float()
+
+            mse_atom = torch.mean(torch.sum((pred32 - true32) ** 2, dim=-1))  # Å²
+
+            pred_c = pred32 - pred32.mean(0)
+            true_c = true32 - true32.mean(0)
+            R = kabsch_superimpose(pred_c, true_c)                            # [3,3]
+            pred_aln = pred_c @ R
+
+            rmsd_c1 = torch.sqrt(mse_atom)                                    # Å
+            tm      = tm_score(pred_aln, true_c)                              # unitless
+
+        # Return Python floats (SimpleMetricAggregator adds ".avg")
+        return {
+            "mse_atom": float(mse_atom),
+            "rmsd_c1":  float(rmsd_c1),
+            "tm_score": tm,
+        }
+
     @torch.no_grad()
     def aggregate_metrics(self, lddt_dict: dict, batch: dict) -> dict:
         simple_metrics, _ = self.lddt_metrics.aggregate_lddt(
@@ -359,6 +434,7 @@ class AF3Trainer(object):
                         {k: v for k, v in lddt_metrics.items() if "diff" not in k}
                     )
                     simple_metrics.update(loss_dict)
+                    simple_metrics.update(self._coord_metrics(batch))
                 # Metrics
                 for key, value in simple_metrics.items():
                     simple_metric_wrapper.add(
