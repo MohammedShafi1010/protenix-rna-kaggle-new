@@ -33,7 +33,7 @@ basic_configs = {
     "eval_only": False,
     "load_checkpoint_path": "",
     "load_ema_checkpoint_path": "",
-    "load_strict": True,
+    "load_strict": False,
     "load_params_only": True,
     "skip_load_step": False,
     "skip_load_optimizer": False,

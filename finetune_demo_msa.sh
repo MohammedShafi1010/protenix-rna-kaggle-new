@@ -27,12 +27,12 @@ python3 ./runner/train.py \
 --project protenix_new \
 --use_wandb true \
 --diffusion_batch_size 8 \
---eval_interval 250 \
---log_interval 50 \
+--eval_interval 50 \
+--log_interval 1 \
 --checkpoint_interval 250 \
 --ema_decay 0.995 \
 --train_crop_size 360 \
---max_steps 1 \
+--max_steps 50 \
 --warmup_steps 1 \
 --lr 0.0001 \
 --sample_diffusion.N_step 20 \

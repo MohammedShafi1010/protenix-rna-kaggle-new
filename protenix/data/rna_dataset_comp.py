@@ -10,6 +10,7 @@ from typing import Any, Mapping
 import pandas as pd
 import torch
 from Bio.PDB import PDBParser
+from protenix.data.rnafm_featurizer import RNAFMEmbedder
 import numpy as np
 import warnings
 from Bio import BiopythonWarning
@@ -149,6 +150,7 @@ class SimpleRNADataset(Dataset):
             
 
         self.crop_size = crop_size
+        self.rnafm = RNAFMEmbedder()
 
     def parse_labels(self,csv_file, is_valid=False):
         pass
@@ -238,6 +240,8 @@ class SimpleRNADataset(Dataset):
         xyz = self.name_to_xyz[single_sample_dict["name"]]
         seq = single_sample_dict["sequences"][0]['rnaSequence']['sequence']
         assert  len(seq) == xyz.shape[1]
+
+
         if len(seq) > self.crop_size:
             print("crop seq and xyz: ", len(seq))
             # random crop  seq and xyz
@@ -246,6 +250,8 @@ class SimpleRNADataset(Dataset):
             seq = seq[start:end]
             xyz = xyz[:, start:end, :]
             single_sample_dict["sequences"][0]['rnaSequence']['sequence'] = seq
+
+
         # now only take the top1
         only_top1 = True
         if only_top1:
@@ -255,6 +261,14 @@ class SimpleRNADataset(Dataset):
             single_sample_dict,
         )
         features_dict, atom_array, token_array = sample2feat.get_feature_dict()
+        # ─── RNA-FM embedding ───
+        try:
+            rnafm_emb = self.rnafm.embed(seq)   # (L,640) np.ndarray
+            features_dict["rnafm_embed"] = torch.from_numpy(rnafm_emb)
+        except Exception:
+            logger.exception("RNA-FM embedding failed for %s", single_sample_dict["name"])
+
+
         features_dict["distogram_rep_atom_mask"] = torch.Tensor(
             atom_array.distogram_rep_atom_mask
         ).long()

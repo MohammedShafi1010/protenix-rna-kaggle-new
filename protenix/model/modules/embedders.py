@@ -43,12 +43,15 @@ class InputFeatureEmbedder(nn.Module):
         self.c_atom = c_atom
         self.c_atompair = c_atompair
         self.c_token = c_token
+
         self.atom_attention_encoder = AtomAttentionEncoder(
             c_atom=c_atom,
             c_atompair=c_atompair,
             c_token=c_token,
             has_coords=False,
         )
+        self.linear_rnafm = LinearNoBias(640, self.c_token + 32 + 32 + 1)
+        nn.init.zeros_(self.linear_rnafm.weight)
         # Line2
         self.input_feature = {"restype": 32, "profile": 32, "deletion_mean": 1}
 
@@ -84,6 +87,11 @@ class InputFeatureEmbedder(nn.Module):
             ],
             dim=-1,
         )
+        print("rna fm embedding broooo",input_feature_dict["rnafm_embed"],input_feature_dict["rnafm_embed"].shape)
+        rnafm_embeddings = self.linear_rnafm(input_feature_dict["rnafm_embed"])
+        print("rna fm embedding after linear transformation",rnafm_embeddings,rnafm_embeddings.shape)
+        s_inputs = s_inputs + rnafm_embeddings
+        print("rna fm embedding into s_inputs",s_inputs,s_inputs.shape)
         return s_inputs
 
 

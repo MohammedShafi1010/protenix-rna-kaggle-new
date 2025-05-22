@@ -167,7 +167,7 @@ ema_mutable_param_keywords:
 - ''
 eval_ema_only: false
 eval_first: true
-eval_interval: 250
+eval_interval: 50
 eval_only: false
 find_unused_parameters: false
 grad_clip_norm: 10
@@ -185,8 +185,8 @@ iters_to_accumulate: 1
 load_checkpoint_path: /home/ubuntu/shafi_workspace/Protenix-RNA-Kaggle/release_data/checkpoint/model_v0.2.0.pt
 load_ema_checkpoint_path: /home/ubuntu/shafi_workspace/Protenix-RNA-Kaggle/release_data/checkpoint/model_v0.2.0.pt
 load_params_only: true
-load_strict: true
-log_interval: 50
+load_strict: false
+log_interval: 1
 loss:
   diffusion:
     bond:
