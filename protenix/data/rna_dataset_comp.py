@@ -165,56 +165,67 @@ class SimpleRNADataset(Dataset):
             coordinates: numpy array of shape (n_atoms, 3)
             atom_names: list of atom names
         """
+        ATOM_INDEX_MAP = {
+            "A": {"OP3":0,"P":1,"OP1":2,"OP2":3,"O5'":4,"C5'":5,"C4'":6,"O4'":7,
+                "C3'":8,"O3'":9,"C2'":10,"O2'":11,"C1'":12,"N9":13,"C8":14,
+                "N7":15,"C5":16,"C6":17,"N6":18,"N1":19,"C2":20,"N3":21,"C4":22},
+            "C": {"OP3":0,"P":1,"OP1":2,"OP2":3,"O5'":4,"C5'":5,"C4'":6,"O4'":7,
+                "C3'":8,"O3'":9,"C2'":10,"O2'":11,"C1'":12,"N1":13,"C2":14,
+                "O2":15,"N3":16,"C4":17,"N4":18,"C5":19,"C6":20},
+            "G": {"OP3":0,"P":1,"OP1":2,"OP2":3,"O5'":4,"C5'":5,"C4'":6,"O4'":7,
+                "C3'":8,"O3'":9,"C2'":10,"O2'":11,"C1'":12,"N9":13,"C8":14,
+                "N7":15,"C5":16,"C6":17,"O6":18,"N1":19,"C2":20,"N2":21,"N3":22,"C4":23},
+            "U": {"OP3":0,"P":1,"OP1":2,"OP2":3,"O5'":4,"C5'":5,"C4'":6,"O4'":7,
+                "C3'":8,"O3'":9,"C2'":10,"O2'":11,"C1'":12,"N1":13,"C2":14,
+                "O2":15,"N3":16,"C4":17,"O4":18,"C5":19,"C6":20},
+        }
+        
         parser = MMCIFParser(QUIET=True)
         structure = parser.get_structure('', cif_file)
         
-        # Assume single model and chain for now
+        # Use only first model
         model = structure[0]
         
         sequence = ""
         coordinates = []
         atom_names = []
-        residue_data = []
+        residue_index = 0
         
         # Process all chains
         for chain in model:
-            chain_sequence = ""
-            chain_coords = []
-            chain_atoms = []
-            chain_residues = []
-            
             for residue in chain:
                 resname = residue.get_resname()
                 
                 # Check if it's an RNA nucleotide
                 if resname in ['A', 'U', 'G', 'C']:
-                    chain_sequence += resname
+                    sequence += resname
                     
-                    # Get all atoms in this residue
-                    residue_coords = []
-                    residue_atoms = []
+                    # Get expected atoms for this nucleotide type
+                    expected_atoms = ATOM_INDEX_MAP[resname]
                     
+                    # Skip OP3 for all residues except the first one
+                    if residue_index > 0 and "OP3" in expected_atoms:
+                        expected_atoms_filtered = {k: v for k, v in expected_atoms.items() if k != "OP3"}
+                    else:
+                        expected_atoms_filtered = expected_atoms
+                    
+                    # Collect actual atoms from residue
+                    actual_atoms = {}
                     for atom in residue:
                         atom_name = atom.get_name()
-                        coord = atom.get_coord()
-                        
-                        residue_coords.append(coord)
-                        residue_atoms.append(atom_name)
+                        if atom_name in expected_atoms_filtered:
+                            actual_atoms[atom_name] = atom.get_coord()
                     
-                    chain_residues.append({
-                        'coords': np.array(residue_coords),
-                        'atoms': residue_atoms,
-                        'resname': resname
-                    })
-            
-            if chain_sequence:  # Only add if we found RNA residues
-                sequence += chain_sequence
-                residue_data.extend(chain_residues)
-        
-        # Flatten coordinates and atom names
-        for residue in residue_data:
-            coordinates.extend(residue['coords'])
-            atom_names.extend(residue['atoms'])
+                    # Add atoms in the expected order
+                    for atom_name in sorted(expected_atoms_filtered.keys(), key=lambda x: expected_atoms_filtered[x]):
+                        atom_names.append(atom_name)
+                        if atom_name in actual_atoms:
+                            coordinates.append(actual_atoms[atom_name])
+                        else:
+                            # Add empty coordinate for missing atoms
+                            coordinates.append([9999, 9999, 9999])
+                    
+                    residue_index += 1
         
         return sequence, np.array(coordinates), atom_names
 
@@ -234,10 +245,13 @@ class SimpleRNADataset(Dataset):
         sequence = structure_data['sequence']
         coordinates = structure_data['coordinates']
         atom_names = structure_data['atom_names']
+        # print(atom_names)
+        # print(len(atom_names))
+        # print(coordinates)
         
         sample2feat = SampleDictToFeatures(single_sample_dict)
         features_dict, atom_array, token_array = sample2feat.get_feature_dict()
-        
+
         # RNA-FM embedding
         try:
             rnafm_emb = self.rnafm.embed(sequence)   # (L,640) np.ndarray
@@ -254,16 +268,33 @@ class SimpleRNADataset(Dataset):
         coordinate_list = []
         coordinate_mask_list = []
         
+        # define a threshold for “too large” values
+        MAX_COORD = 1000
+
         coord_idx = 0
         for atom in atom_array:
             if coord_idx < len(coordinates):
-                # Map the coordinate based on atom name matching
-                atom_coord = coordinates[coord_idx]
-                coordinate_list.append(atom_coord.tolist())
-                coordinate_mask_list.append(1)
+                raw_coord = coordinates[coord_idx]
+                valid = True
+                try:
+                    arr = np.array(raw_coord, dtype=float)
+                    # must be length-3, finite, and not exceed threshold
+                    if arr.shape != (3,) or not np.all(np.isfinite(arr)) or np.any(np.abs(arr) > MAX_COORD):
+                        valid = False
+                except Exception:
+                    valid = False
+
+                if valid:
+                    coordinate_list.append(arr.tolist())
+                    coordinate_mask_list.append(1)
+                else:
+                    # invalid → zero out
+                    coordinate_list.append([0.0, 0.0, 0.0])
+                    coordinate_mask_list.append(0)
                 coord_idx += 1
             else:
-                coordinate_list.append([0, 0, 0])
+                # ran out of real coordinates
+                coordinate_list.append([0.0, 0.0, 0.0])
                 coordinate_mask_list.append(0)
 
         t1 = time.time()
@@ -293,7 +324,6 @@ class SimpleRNADataset(Dataset):
             features_dict=features_dict,
             dummy_feats=dummy_feats,
         )
-
         # Transform to right data type
         feat = data_type_transform(feat_or_label_dict=features_dict)
 
@@ -324,7 +354,12 @@ class SimpleRNADataset(Dataset):
                 "N_msa": torch.tensor([N_msa]),
             }
         )
-
+        logger.info(
+            (
+                f"N_asym {data['N_asym'].item()}, N_token {data['N_token'].item()}, "
+                f"N_atom {data['N_atom'].item()}, N_msa {data['N_msa'].item()}"
+            )
+        )
         def formatted_key(key):
             type_, unit = key.split("/")
             if type_ == "protein":
@@ -378,6 +413,7 @@ class SimpleRNADataset(Dataset):
         }
         data["sample_name"] = single_sample_dict["name"]
         data["sample_index"] = index
+        # print(data)
         return data
 
 

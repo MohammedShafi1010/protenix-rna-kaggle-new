@@ -31,7 +31,7 @@ python3 ./runner/train.py \
 --log_interval 1 \
 --checkpoint_interval 250 \
 --ema_decay 0.995 \
---train_crop_size 30 \
+--train_crop_size 360 \
 --max_steps 1 \
 --warmup_steps 1 \
 --lr 0.0001 \
