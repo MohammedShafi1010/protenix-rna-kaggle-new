@@ -116,7 +116,10 @@ class SimpleRNADataset(Dataset):
                 if '-' in sequence:
                     print(f'Skipping {cif_file}: Contains gap characters')
                     continue
-                
+                # Skip if sequence is too long
+                if len(sequence) > crop_size:
+                    print(f'Skipping {cif_file}: Sequence too long ({len(sequence)} > {crop_size})')
+                    continue
                 # Store the data
                 self.name_to_data[structure_name] = {
                     'sequence': sequence,
@@ -215,29 +218,6 @@ class SimpleRNADataset(Dataset):
         
         return sequence, np.array(coordinates), atom_names
 
-    def smart_crop(self, sequence: str, coordinates: np.ndarray, atom_names: list, crop_size: int):
-        seq_len = len(sequence)
-        
-        if seq_len <= crop_size:
-            return sequence, coordinates, atom_names
-        
-        # Calculate atoms per residue (approximate)
-        atoms_per_residue = len(coordinates) // seq_len
-        
-        start_residue = np.random.randint(0, seq_len - crop_size + 1)
-        end_residue = start_residue + crop_size
-        
-        # Crop sequence
-        cropped_sequence = sequence[start_residue:end_residue]
-        
-        # Crop atoms (approximate mapping)
-        start_atom = start_residue * atoms_per_residue
-        end_atom = end_residue * atoms_per_residue
-        
-        cropped_coords = coordinates[start_atom:end_atom]
-        cropped_atoms = atom_names[start_atom:end_atom]
-        
-        return cropped_sequence, cropped_coords, cropped_atoms
 
     def process_one(
         self,
@@ -255,17 +235,6 @@ class SimpleRNADataset(Dataset):
         coordinates = structure_data['coordinates']
         atom_names = structure_data['atom_names']
         
-        # Apply smart cropping if needed
-        if len(sequence) > self.crop_size and self.split == "train":
-            print(f"Smart cropping sequence from {len(sequence)} to {self.crop_size} residues")
-            sequence, coordinates, atom_names = self.smart_crop(
-                sequence, coordinates, atom_names, self.crop_size
-            )
-            # Update the sample dict with cropped sequence
-            single_sample_dict["sequences"][0]['rnaSequence']['sequence'] = sequence
-        elif len(sequence) > self.crop_size and self.split == "val":
-            print(f"Skipping validation sample with {len(sequence)} residues (exceeds crop_size {self.crop_size})")
-
         sample2feat = SampleDictToFeatures(single_sample_dict)
         features_dict, atom_array, token_array = sample2feat.get_feature_dict()
         
