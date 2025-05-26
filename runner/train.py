@@ -189,7 +189,7 @@ class AF3Trainer(object):
         self.configs.input_json_path = "./examples/casp16_part.json"
         self.configs.dump_dir = "./output/"
         #self.configs.use_msa = True
-        self.configs.num_workers = 4
+        self.configs.num_workers = 0
         # dataloader = get_rna_dataloader(configs=self.configs)
         # self.train_dl, test_dl = dataloader, dataloader
         # self.test_dls = {"default": test_dl}

@@ -826,6 +826,13 @@ def tokenize_msa(
     token_center_atom_idxs = token_array.get_annotation("centre_atom_index")
     # res_id: (asym_id, residue_index)
     # msa_idx refers to the column number of a residue in the msa array
+
+    # right before building res_id_2_msa_idx
+    # logger.info(f"tokenize_msa: asym_id.shape={msa_feats['asym_id'].shape}, "
+    #             f"residue_index.shape={msa_feats['residue_index'].shape}, "
+    #             f"msa_feats.shape={msa_feats['msa'].shape}, "
+    #             )
+    
     res_id_2_msa_idx = {
         (msa_feats["asym_id"][idx], msa_feats["residue_index"][idx]): idx
         for idx in range(msa_feats["msa"].shape[1])
@@ -1165,7 +1172,7 @@ class InferenceMSAFeaturizer(object):
             raw_msa_paths = []
         else:
             raw_msa_paths = [opjoin(msa_dir, f"{pdb_name}.MSA.fasta")]
-
+        logger.info(f"⟳ MSA path: {raw_msa_paths}")
         sequence_features = process_single_sequence(
             pdb_name=pdb_name,
             sequence=sequence,

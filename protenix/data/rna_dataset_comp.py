@@ -238,6 +238,17 @@ class SimpleRNADataset(Dataset):
         Processes a single sample from the input to generate features and statistics.
         """
         t0 = time.time()
+
+        # ——— LOG CURRENT SAMPLE INFO ———
+        pdb_id = single_sample_dict["name"]
+        seq = self.name_to_data[pdb_id]["sequence"]
+        # fetch the precomputed_msa_dir from the input spec (if any)
+        msa_info = single_sample_dict["sequences"][0]["rnaSequence"].get("msa", {})
+        msa_dir = msa_info.get("precomputed_msa_dir", "N/A")
+        logger.info(
+            f"⟳ Processing sample {pdb_id} | seq_len={len(seq)} | msa_dir={msa_dir}"
+        )
+        # —————————————————————————————
         
         structure_name = single_sample_dict["name"]
         structure_data = self.name_to_data[structure_name]

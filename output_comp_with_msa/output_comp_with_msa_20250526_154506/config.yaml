@@ -242,7 +242,7 @@ loss_metrics_sparse_enable: true
 lr: 0.0001
 lr_scheduler: af3
 max_atoms_per_token: 24
-max_steps: 1
+max_steps: 50
 metrics:
   chain_ranker_keys:
   - chain_ptm
