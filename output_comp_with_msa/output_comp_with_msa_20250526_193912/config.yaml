@@ -8,7 +8,7 @@ af3_lr_scheduler:
   decay_every_n_steps: 50000
   decay_factor: 0.95
   lr: 0.0001
-  warmup_steps: 1
+  warmup_steps: 50
 atom_permutation:
   global_align_wo_symmetric_atom: false
   permute_by_pocket: true
@@ -167,7 +167,7 @@ ema_mutable_param_keywords:
 - ''
 eval_ema_only: false
 eval_first: true
-eval_interval: 50
+eval_interval: 250
 eval_only: false
 find_unused_parameters: false
 grad_clip_norm: 10
@@ -186,7 +186,7 @@ load_checkpoint_path: /home/ubuntu/shafi_workspace/Protenix-RNA-Kaggle/release_d
 load_ema_checkpoint_path: /home/ubuntu/shafi_workspace/Protenix-RNA-Kaggle/release_data/checkpoint/model_v0.2.0.pt
 load_params_only: true
 load_strict: false
-log_interval: 1
+log_interval: 50
 loss:
   diffusion:
     bond:
@@ -242,7 +242,7 @@ loss_metrics_sparse_enable: true
 lr: 0.0001
 lr_scheduler: af3
 max_atoms_per_token: 24
-max_steps: 50
+max_steps: 4000
 metrics:
   chain_ranker_keys:
   - chain_ptm
@@ -381,4 +381,4 @@ use_msa: true
 use_wandb: true
 use_xformer: false
 wandb_id: ''
-warmup_steps: 1
+warmup_steps: 50
