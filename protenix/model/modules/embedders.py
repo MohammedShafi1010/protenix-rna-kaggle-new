@@ -87,11 +87,11 @@ class InputFeatureEmbedder(nn.Module):
             ],
             dim=-1,
         )
-        print("rna fm embedding broooo",input_feature_dict["rnafm_embed"],input_feature_dict["rnafm_embed"].shape)
+        # print("rna fm embedding broooo",input_feature_dict["rnafm_embed"],input_feature_dict["rnafm_embed"].shape)
         rnafm_embeddings = self.linear_rnafm(input_feature_dict["rnafm_embed"])
-        print("rna fm embedding after linear transformation",rnafm_embeddings,rnafm_embeddings.shape)
+        # print("rna fm embedding after linear transformation",rnafm_embeddings,rnafm_embeddings.shape)
         s_inputs = s_inputs + rnafm_embeddings
-        print("rna fm embedding into s_inputs",s_inputs,s_inputs.shape)
+        # print("rna fm embedding into s_inputs",s_inputs,s_inputs.shape)
         return s_inputs
 
 

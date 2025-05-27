@@ -28,38 +28,102 @@ from protenix.utils.training import get_optimizer, is_loss_nan_check
 from runner.ema import EMAWrapper
 # Disable WANDB's console output capture to reduce unnecessary logging
 os.environ["WANDB_CONSOLE"] = "off"
+import subprocess
+import tempfile
+import os
+import re
+
+# Import the functions from your rmsd.py
+from protenix.metrics.rmsd import self_aligned_rmsd, rmsd
 
 
+# Add the atom mapping from your second file
+ATOM_INDEX_MAP = {
+    "A": {"OP3":0,"P":1,"OP1":2,"OP2":3,"O5'":4,"C5'":5,"C4'":6,"O4'":7,
+          "C3'":8,"O3'":9,"C2'":10,"O2'":11,"C1'":12,"N9":13,"C8":14,
+          "N7":15,"C5":16,"C6":17,"N6":18,"N1":19,"C2":20,"N3":21,"C4":22},
+    "C": {"OP3":0,"P":1,"OP1":2,"OP2":3,"O5'":4,"C5'":5,"C4'":6,"O4'":7,
+          "C3'":8,"O3'":9,"C2'":10,"O2'":11,"C1'":12,"N1":13,"C2":14,
+          "O2":15,"N3":16,"C4":17,"N4":18,"C5":19,"C6":20},
+    "G": {"OP3":0,"P":1,"OP1":2,"OP2":3,"O5'":4,"C5'":5,"C4'":6,"O4'":7,
+          "C3'":8,"O3'":9,"C2'":10,"O2'":11,"C1'":12,"N9":13,"C8":14,
+          "N7":15,"C5":16,"C6":17,"O6":18,"N1":19,"C2":20,"N2":21,"N3":22,"C4":23},
+    "U": {"OP3":0,"P":1,"OP1":2,"OP2":3,"O5'":4,"C5'":5,"C4'":6,"O4'":7,
+          "C3'":8,"O3'":9,"C2'":10,"O2'":11,"C1'":12,"N1":13,"C2":14,
+          "O2":15,"N3":16,"C4":17,"O4":18,"C5":19,"C6":20},
+}
+REV_ATOM_MAP = {b: {i: n for n, i in m.items()} for b, m in ATOM_INDEX_MAP.items()}
 
+def write_target_line(
+    atom_name, atom_serial, residue_name, chain_id, residue_num, x_coord, y_coord, z_coord, occupancy=1.0, b_factor=0.0, atom_type='P'
+):
+    return f'ATOM  {atom_serial:>5d}  {atom_name:<5s} {residue_name:<3s} {residue_num:>3d}    {x_coord:>8.3f}{y_coord:>8.3f}{z_coord:>8.3f}{occupancy:>6.2f}{b_factor:>6.2f}           {atom_type}\n'
 
-import torch.nn.functional as F
-
-def kabsch_superimpose(P: torch.Tensor, Q: torch.Tensor) -> torch.Tensor:
+def write_full_pdb_from_coords(coords, seq, feat_dict, out_path):
     """
-    Optimal rotation that aligns P to Q (rows = atoms, cols = xyz).
-    Both P and Q must already be centred.
+    Write PDB from coordinates using proper atom mapping
     """
-    P32, Q32 = P.float(), Q.float()
-    H = P32.t() @ Q32                           # [3,3]
-    U, S, Vt = torch.linalg.svd(H)
+    atom2tok = feat_dict['atom_to_token_idx'].cpu().numpy()
+    atom2localidx = feat_dict['atom_to_tokatom_idx'].cpu().numpy()
     
-    # Correct rotation matrix
-    R = U @ Vt
-    
-    # Ensure proper rotation (det = +1)
-    if torch.det(R) < 0:
-        U[:, -1] *= -1  # Flip last column of U
-        R = U @ Vt
-    
-    return R.type_as(P)
+    serial = 1
+    with open(out_path, 'w') as fh:
+        for atom_i, (x, y, z) in enumerate(coords):
+            res = int(atom2tok[atom_i])
+            base = seq[res]
+            local_idx = int(atom2localidx[atom_i])
+            name = REV_ATOM_MAP[base].get(local_idx, 'XX')
+            
+            # Skip non-standard OP3
+            if name == 'OP3':
+                continue
+                
+            elem = name[0]
+            line = write_target_line(
+                atom_name=name,
+                atom_serial=serial,
+                residue_name=base,
+                chain_id='A',
+                residue_num=res+1,
+                x_coord=x,
+                y_coord=y,
+                z_coord=z,
+                atom_type=elem
+            )
+            fh.write(line)
+            serial += 1
 
-def rna_tm_score(P: torch.Tensor, Q: torch.Tensor, d0: float = 2.0) -> float:
-    """
-    TM-score for RNA structures with appropriate d0 parameter.
-    """
-    dist2 = torch.sum((P - Q) ** 2, dim=-1)     # [L]
-    score = torch.mean(1.0 / (1.0 + dist2 / (d0 ** 2)))
-    return float(score)
+def parse_usalign_for_tm_score(output):
+    tm_score_matches = re.findall(r'TM-score=\s+([\d.]+)', output)
+    if len(tm_score_matches) < 2:
+        raise ValueError('Not enough TM scores found')
+    return float(tm_score_matches[1])  # Second TM-score
+
+def call_usalign(pred_file: str, actual_file: str, usalign_path: str) -> float:
+    """Invoke USalign with C1' atom filter"""
+    cmd = f"{usalign_path} {pred_file} {actual_file} -atom \" C1'\" -m - 2>&1"
+    output = subprocess.check_output(cmd, shell=True, text=True)
+    filtered = "\n".join(
+        line for line in output.splitlines()
+        if not line.lstrip().startswith("Warning!")
+    )
+    return parse_usalign_for_tm_score(filtered)
+
+def get_c1_prime_mask(feat_dict, seq):
+    """Create mask for C1' atoms only"""
+    atom2tok = feat_dict['atom_to_token_idx'].cpu().numpy()
+    atom2localidx = feat_dict['atom_to_tokatom_idx'].cpu().numpy()
+    c1_mask = []
+    for atom_i in range(len(atom2tok)):
+        res = int(atom2tok[atom_i])
+        base = seq[res]
+        local_idx = int(atom2localidx[atom_i])
+        atom_name = REV_ATOM_MAP[base].get(local_idx, 'XX')
+        c1_mask.append(atom_name == "C1'")
+    return torch.tensor(c1_mask, dtype=torch.bool, device=feat_dict['atom_to_token_idx'].device)
+
+
+
 
 class AF3Trainer(object):
     def __init__(self, configs):
@@ -329,75 +393,81 @@ class AF3Trainer(object):
         )
         return lddt_dict
     
-    
-    @torch.no_grad()
-    def _coord_metrics(self, batch: dict) -> dict:
+    @torch.no_grad() 
+    def _coord_metrics_detailed(self, batch: dict, usalign_path: str = "/home/ubuntu/shafi_workspace/Protenix-RNA-Kaggle/USalign/USalign") -> dict:
         """
-        Returns {mse_atom, rmsd_c1, tm_score} per-sample on masked atoms.
-        Handles predictions with shape [num_samples, num_atoms, 3] or [num_atoms, 3].
+        Compute detailed coordinate metrics with proper C1' atom identification
         """
         # Extract coordinates
         pred_coords = batch["pred_dict"]["coordinate"]
         if isinstance(pred_coords, list):
-            pred_coords = pred_coords[0]  # Take first element if list
+            pred_coords = pred_coords[0]
         
-        true = batch["label_dict"]["coordinate"]  # Shape: [num_atoms, 3]
-        mask = batch["label_dict"]["coordinate_mask"].bool()  # Shape: [num_atoms]
+        true_coords = batch["label_dict"]["coordinate"]
         
         # Handle multi-sample predictions
-        if pred_coords.dim() == 3:  # Shape: [num_samples, num_atoms, 3]
-            # Take the first sample (or you could average/take best)
-            pred = pred_coords[0]  # Shape: [num_atoms, 3]
-            print(f"Multi-sample prediction detected: {pred_coords.shape} -> taking first sample: {pred.shape}")
-        elif pred_coords.dim() == 2:  # Shape: [num_atoms, 3]
-            pred = pred_coords
-        else:
-            raise ValueError(f"Unexpected prediction shape: {pred_coords.shape}")
+        if pred_coords.dim() == 3:
+            pred_coords = pred_coords[0]
         
-        # Validate shapes after handling multi-sample
-        assert pred.shape == true.shape, f"Shape mismatch after processing: pred {pred.shape} vs true {true.shape}"
+        # Get sequence and feature dict for proper atom mapping
+        feat_dict = batch["input_feature_dict"]
         
-        # Debug: Check coordinate ranges
-        print(f"Pred coord range: {pred.min().item():.2f} to {pred.max().item():.2f}")
-        print(f"True coord range: {true.min().item():.2f} to {true.max().item():.2f}")
-        print(f"Number of masked atoms: {mask.sum().item()}/{len(mask)}")
+        seq = batch["basic"]['sequence']
         
-        # Apply mask
-        pred = pred[mask]
-        true = true[mask]
+        # Create proper C1' mask using atom mapping
+        c1_mask = get_c1_prime_mask(feat_dict, seq)
+
         
-        # Check for minimum atoms
-        if len(pred) < 3:
-            print(f"Warning: Only {len(pred)} atoms after masking, returning default values")
-            return {"mse_atom": float('inf'), "rmsd_c1": float('inf'), "tm_score": 0.0}
+        # Add batch dimension
+        pred_coords_batched = pred_coords.float().unsqueeze(0)
+        true_coords_batched = true_coords.float().unsqueeze(0) 
+        c1_mask_batched = c1_mask.unsqueeze(0)
+        all_atom_mask = torch.ones_like(c1_mask_batched)
         
         with torch.cuda.amp.autocast(False):
-            pred32 = pred.float()
-            true32 = true.float()
+            # C1'-aligned RMSD (align on C1', compute on C1')
+            c1_rmsd, aligned_pred_coords, rot, trans = self_aligned_rmsd(
+                pred_pose=pred_coords_batched,
+                true_pose=true_coords_batched,
+                atom_mask=c1_mask_batched,
+                reduce=True,
+                allowing_reflection=False
+            )
             
-            # Center coordinates
-            pred_c = pred32 - pred32.mean(0)
-            true_c = true32 - true32.mean(0)
+            # All-atom RMSD after C1' alignment
+            all_atom_rmsd = rmsd(
+                pred_pose=aligned_pred_coords,
+                true_pose=true_coords_batched,
+                mask=all_atom_mask,
+                reduce=True
+            )
             
-            # Debug: Check centered coordinate ranges
-            print(f"Centered pred std: {pred_c.std().item():.2f}")
-            print(f"Centered true std: {true_c.std().item():.2f}")
-            
-            # Kabsch alignment (using corrected algorithm)
-            R = kabsch_superimpose(pred_c, true_c)  # Use corrected function
-            pred_aln = pred_c @ R
-            
-            # Metrics (calculated on aligned coordinates)
-            mse_atom = torch.mean(torch.sum((pred_aln - true_c) ** 2, dim=-1))
-            rmsd_c1 = torch.sqrt(mse_atom)
-            tm = rna_tm_score(pred_aln, true_c, d0=2.0)  # Use RNA-appropriate function
-        
-        print(f"Computed metrics - MSE: {float(mse_atom):.2f}, RMSD: {float(rmsd_c1):.2f}, TM: {tm:.4f}")
+            # TM-score calculation using USAlign
+            try:
+                with tempfile.TemporaryDirectory() as tmp_dir:
+                    pred_pdb = os.path.join(tmp_dir, "pred.pdb")
+                    true_pdb = os.path.join(tmp_dir, "true.pdb")
+                    
+                    # Write PDB files with proper atom mapping
+                    write_full_pdb_from_coords(aligned_pred_coords.squeeze(0).cpu().numpy(), seq, feat_dict, pred_pdb)
+                    write_full_pdb_from_coords(true_coords.cpu().numpy(), seq, feat_dict, true_pdb)
+                    
+                    # Calculate TM-score using USAlign
+                    tm_score = call_usalign(pred_pdb, true_pdb, usalign_path)
+                    
+            except Exception as e:
+                print(f"USAlign failed: {e}")
+                tm_score = 0.0
+
+        print(f"Computed metrics - MSE C1: {float(c1_rmsd ** 2):.4f}, RMSD C1: {float(c1_rmsd):.4f}, RMSD ALL: {float(all_atom_rmsd):.4f}, TM: {tm_score:.4f}, N C1: {int(c1_mask.sum())} N ALL: {int(len(c1_mask))}")
         
         return {
-            "mse_atom": float(mse_atom),
-            "rmsd_c1": float(rmsd_c1),
-            "tm_score": tm,
+            "mse_atom": float(c1_rmsd ** 2),
+            "rmsd_c1": float(c1_rmsd),
+            "rmsd_all_atom": float(all_atom_rmsd),
+            "tm_score": tm_score,
+            "n_c1_atoms": int(c1_mask.sum()),
+            "n_total_atoms": int(len(c1_mask))
         }
 
     @torch.no_grad()
@@ -463,7 +533,10 @@ class AF3Trainer(object):
                         {k: v for k, v in lddt_metrics.items() if "diff" not in k}
                     )
                     simple_metrics.update(loss_dict)
-                    simple_metrics.update(self._coord_metrics(batch))
+
+                    # Or for more detailed metrics:
+                    simple_metrics.update(self._coord_metrics_detailed(batch))
+                    # simple_metrics.update(self._coord_metrics(batch))
                 # Metrics
                 for key, value in simple_metrics.items():
                     simple_metric_wrapper.add(

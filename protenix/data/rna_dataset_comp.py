@@ -414,13 +414,15 @@ class SimpleRNADataset(Dataset):
 
     def __getitem__(self, index: int):
         single_sample_dict = self.inputs[index].copy()
+        seq = single_sample_dict['sequences'][0]['rnaSequence']['sequence']
         data, atom_array, _ = self.process_one(
             single_sample_dict=single_sample_dict
         )
         
         # For trainer._evaluate() we need batch["basic"]["pdb_id"]
         data["basic"] = {
-            "pdb_id": single_sample_dict["name"]
+            "pdb_id": single_sample_dict["name"],
+            "sequence": seq
         }
         data["sample_name"] = single_sample_dict["name"]
         data["sample_index"] = index
