@@ -137,7 +137,7 @@ data:
       random_sample_if_failed: true
       use_reference_chains_only: false
     cropping_configs:
-      crop_size: 350
+      crop_size: 345
       method_weights:
       - 0.2
       - 0.4
@@ -242,7 +242,7 @@ loss_metrics_sparse_enable: true
 lr: 0.0001
 lr_scheduler: af3
 max_atoms_per_token: 24
-max_steps: 1
+max_steps: 4000
 metrics:
   chain_ranker_keys:
   - chain_ptm
@@ -339,7 +339,7 @@ model:
     n_blocks: 0
 n_blocks: 48
 no_bins: 64
-project: protenix_new
+project: protenix_final
 run_name: output_comp_with_msa
 sample_diffusion:
   N_sample: 5
@@ -365,7 +365,7 @@ test_max_n_token: -1
 test_shuffle_mols: false
 test_shuffle_sym_ids: false
 train_confidence_only: false
-train_crop_size: 350
+train_crop_size: 345
 train_lig_atom_rename: false
 train_noise_sampler:
   p_mean: -1.2

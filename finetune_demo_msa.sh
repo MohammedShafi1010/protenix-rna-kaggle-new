@@ -33,7 +33,7 @@ python3 ./runner/train.py \
 --ema_decay 0.995 \
 --train_crop_size 345 \
 --max_steps 4000 \
---warmup_steps 1 \
+--warmup_steps 50 \
 --lr 0.0001 \
 --sample_diffusion.N_step 20 \
 --load_checkpoint_path ${checkpoint_path} \

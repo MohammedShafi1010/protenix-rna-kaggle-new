@@ -38,6 +38,8 @@ from protenix.data.utils import data_type_transform, make_dummy_feature
 from protenix.utils.distributed import DIST_WRAPPER
 from protenix.utils.torch_utils import dict_to_tensor
 
+from protenix.data.rnafm_featurizer import RNAFMEmbedder
+
 logger = logging.getLogger(__name__)
 
 warnings.filterwarnings("ignore", module="biotite")
@@ -89,6 +91,7 @@ class InferenceDataset(Dataset):
             self.inputs = json.load(f)
             #self.inputs =  self.inputs[:23]
         print(self.inputs[0])
+        self.rnafm = RNAFMEmbedder()
         #exit(0)
 #         casp_vfold_result_dir = '/home/lhw/work/rna2025/data/casp16/vfold-prediction/'
 #         self.name_to_xyz = {}
@@ -158,7 +161,17 @@ class InferenceDataset(Dataset):
         sample2feat = SampleDictToFeatures(
             single_sample_dict,
         )
+
         features_dict, atom_array, token_array = sample2feat.get_feature_dict()
+
+        seq = single_sample_dict['sequences'][0]['rnaSequence']['sequence']
+        # RNA-FM embedding
+        try:
+            rnafm_emb = self.rnafm.embed(seq)   # (L,640) np.ndarray
+            features_dict["rnafm_embed"] = torch.from_numpy(rnafm_emb)
+        except Exception:
+            logger.exception("RNA-FM embedding failed for %s", single_sample_dict['name'])
+
         features_dict["distogram_rep_atom_mask"] = torch.Tensor(
             atom_array.distogram_rep_atom_mask
         ).long()
