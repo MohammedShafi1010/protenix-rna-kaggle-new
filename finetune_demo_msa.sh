@@ -16,7 +16,7 @@
 #export USE_DEEPSPEED_EVO_ATTENTION=true
 # wget -P /af3-dev/release_model/ https://af3-dev.tos-cn-beijing.volces.com/release_model/model_v0.2.0.pt
 export USE_DEEPSPEED_EVO_ATTENTION=false
-checkpoint_path="/home/ubuntu/shafi_workspace/Protenix-RNA-Kaggle/release_data/checkpoint/model_v0.2.0.pt"
+checkpoint_path="/home/ubuntu/shafi_workspace/Protenix-RNA-Kaggle/output_comp_with_msa/output_comp_with_msa_20250527_180026/checkpoints/2499.pt"
 
 python3 ./runner/train.py \
 --run_name output_comp_with_msa \

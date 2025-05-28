@@ -6,7 +6,7 @@
                     "sequence": "GGGUGCUCAGUACGAGAGGAACCGCACCC",
                     "count": 1,
                 "msa": {
-                    "precomputed_msa_dir": "./data/MSA/",
+                    "precomputed_msa_dir": "./training_data/MSA/",
                     "pairing_db": ""
                 }
                 }

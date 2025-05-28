@@ -90,9 +90,9 @@ class SimpleRNADataset(Dataset):
         self.split = split
 
         if split == "train":
-            self.cif_dir = "/home/ubuntu/shafi_workspace/Protenix-RNA-Kaggle/data/Train_dataset/"
+            self.cif_dir = "/home/ubuntu/shafi_workspace/Protenix-RNA-Kaggle/training_data/Train_dataset/"
         if split == "val":
-            self.cif_dir = "/home/ubuntu/shafi_workspace/Protenix-RNA-Kaggle/data/Test_dataset/"
+            self.cif_dir = "/home/ubuntu/shafi_workspace/Protenix-RNA-Kaggle/training_data/Test_dataset/"
         
         print('use_msa: ', use_msa)
         
@@ -134,7 +134,7 @@ class SimpleRNADataset(Dataset):
                             "sequence": sequence,
                             "count": 1,
                             "msa": {
-                                "precomputed_msa_dir": "/home/ubuntu/shafi_workspace/Protenix-RNA-Kaggle/data/MSA",
+                                "precomputed_msa_dir": "/home/ubuntu/shafi_workspace/Protenix-RNA-Kaggle/training_data/MSA",
                                 "pairing_db": ""
                             },
                         },

@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 export USE_DEEPSPEED_EVO_ATTENTION=false
+checkpoint_path="/home/ubuntu/shafi_workspace/Protenix-RNA-Kaggle/output_comp_with_msa/output_comp_with_msa_20250527_180026/checkpoints/2499.pt"
 N_sample=5
 N_step=200
 N_cycle=10
@@ -25,7 +26,8 @@ python3 runner/inference.py \
 --model.N_cycle ${N_cycle} \
 --sample_diffusion.N_sample ${N_sample} \
 --sample_diffusion.N_step ${N_step} \
---use_msa false
+--use_msa false \
+--load_checkpoint_path ${checkpoint_path}
 # The following is a demo to use DDP for inference
 # torchrun \
 #     --nproc_per_node $NPROC \
